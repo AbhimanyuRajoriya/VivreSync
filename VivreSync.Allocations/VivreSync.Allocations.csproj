@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VivreSync.Model\VivreSync.Model.csproj" />
+    <ProjectReference Include="..\VivreSync.Shared\VivreSync.Shared.csproj" />
+    <ProjectReference Include="..\VivreSync.Structure\VivreSync.Structure.csproj" />
+    <ProjectReference Include="..\VivreSync.Projects\VivreSync.Projects.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,11 @@
+<Solution>
+  <Project Path="VivreSync.Allocations/VivreSync.Allocations.csproj" Id="bd3ff357-a492-4462-adba-b848a4aac5fc" />
+  <Project Path="VivreSync.Authentication/VivreSync.Authentication.csproj" />
+  <Project Path="VivreSync.HR/VivreSync.HR.csproj" />
+  <Project Path="VivreSync.Model/VivreSync.Model.csproj" Id="59086207-8986-4fa7-9db8-81edb0fb00fe" />
+  <Project Path="VivreSync.Projects/VivreSync.Projects.csproj" />
+  <Project Path="VivreSync.Shared/VivreSync.Shared.csproj" />
+  <Project Path="VivreSync.Structure/VivreSync.Structure.csproj" Id="b6ff0b98-7702-4ff7-aa27-e6895b3b4207" />
+  <Project Path="VivreSync.Timesheets/VivreSync.Timesheets.csproj" />
+  <Project Path="VivreSync/VivreSync.csproj" />
+</Solution>
