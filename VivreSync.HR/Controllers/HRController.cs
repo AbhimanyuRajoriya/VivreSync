@@ -35,8 +35,12 @@ public class EmployeesController : ControllerBase
     [HttpPost("EmployeeAdd")]
     public IActionResult CreateEmployee(EmployeeCreateDTO dto)
     {
-        _service.Create(dto);
-        return Ok("Employee Created");
+        var employee = _service.Create(dto);
+
+        if (employee == null)
+            return BadRequest("Enter Valid Request");
+
+        return Ok(employee);
     }
 
     [HttpPost("EmployeeUpdate")]

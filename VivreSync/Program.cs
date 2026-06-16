@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json.Serialization;
 
 using VivreSync.Shared.Exceptions;
 using VivreSync.Authentication.Repositories;
@@ -19,7 +20,12 @@ using VivreSync.Allocations.Repositories;
 using VivreSync.Allocations.Services;
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().
+    AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.UnmappedMemberHandling =
+            JsonUnmappedMemberHandling.Disallow;
+    });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {

@@ -62,15 +62,16 @@ namespace VivreSync.HR.Services
         }
         public Employee? Create(EmployeeCreateDTO dto)
         {
-            var existingUser = _userRepository.GetUser(dto.UserName);
+            var username = dto.UserName.Trim().ToLower();
+            var existingUser = _userRepository.GetUser(username);
 
             if (existingUser != null)
                 return null;
             
-                var isValidRole = Enum.TryParse<UserRoles>(
-                dto.Role,
-                ignoreCase: true,
-                out var parsedRole);
+            var isValidRole = Enum.TryParse<UserRoles>(
+            dto.Role,
+            ignoreCase: true,
+            out var parsedRole);
 
             if (!isValidRole)
                 return null;
@@ -80,7 +81,7 @@ namespace VivreSync.HR.Services
 
             var user = new Users
             {
-                UserName = dto.UserName,
+                UserName = username,
                 Role = parsedRole,
                 IsActive = true,
                 PasswordChangeRequired = true

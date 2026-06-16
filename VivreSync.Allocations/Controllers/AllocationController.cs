@@ -54,5 +54,16 @@ namespace VivreSync.Allocations.Controllers
 
             return Ok();
         }
+
+        [HttpDelete("Delete/{id}")]
+        public IActionResult Delete(int id)
+        {
+            var success = _allocationService.Delete(id);
+
+            if (!success)
+                return NotFound("Allocation not found");
+
+            return Ok();
+        }
     }
 }
