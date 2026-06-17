@@ -6,4 +6,5 @@ public interface IProjectService
     ProjectResponseDTO? GetById(int id);
     ProjectResponseDTO? Create(ProjectCreateDTO dto);
     bool Update(ProjectUpdateDTO dto);
+    ProjectHealthResponseDTO? GetProjectHealth(int projectId);
 }

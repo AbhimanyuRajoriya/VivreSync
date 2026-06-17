@@ -7,11 +7,10 @@ namespace VivreSync.Projects.DTOs
     {
         [Required]
         [StringLength(100)]
-        public string Title { get; set; } = string.Empty;
+        public string Progress { get; set; } = string.Empty;
 
         [Required]
         public DateOnly DueDate { get; set; }
-
-        public MilestoneStatus Status { get; set; }
+        public string Status { get; set; } = string.Empty;
     }
 }

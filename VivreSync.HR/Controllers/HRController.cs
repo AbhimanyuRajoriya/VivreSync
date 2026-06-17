@@ -53,6 +53,15 @@ public class EmployeesController : ControllerBase
 
         return Ok("Employee updated successfully");
     }
+
+    [HttpPost("EmployeeDeactivate")]
+    public IActionResult DeactiavteEmployee(int id)
+    {
+        var result = _service.Deactivate(id);
+        if (!result)
+            return BadRequest("Not Found");
+        return Ok();
+    }
 }
 
 [ApiController]
@@ -73,14 +82,18 @@ public class SkillController : ControllerBase
     [HttpPost("SkillsAdd")]
     public IActionResult CreateSkill(SkillCreateDTO dto)
     {
-        _skillService.CreateSkill(dto);
+        var result = _skillService.CreateSkill(dto);
+        if(result == null)
+            return BadRequest("Invalid Request");
         return Ok("Skill Created");
     }
 
     [HttpPost("SkillAssign")]
     public IActionResult AssignSkill(SkillAssignDTO dto)
     {
-        _skillService.AssignSkillToEmployee(dto);
+        var success = _skillService.AssignSkillToEmployee(dto);
+        if (!success)
+            return BadRequest("Invalid Request");
         return Ok("Skill Assigned");
     }
 }

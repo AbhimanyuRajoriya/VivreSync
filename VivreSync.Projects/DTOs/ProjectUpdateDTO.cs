@@ -4,8 +4,8 @@ namespace VivreSync.Projects.DTOs
 {
     public class ProjectUpdateDTO
     {
-        [Range(1, int.MaxValue, ErrorMessage = "Invalid Id")]
-        [Required]
+        [Range(1, 1000, ErrorMessage = "Invalid Id")]
+        [Required(ErrorMessage ="Enter Project ID")]
         public int Id { get; set; }
 
         [Required]

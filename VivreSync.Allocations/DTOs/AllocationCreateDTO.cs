@@ -4,12 +4,10 @@ namespace VivreSync.Allocations.DTOs;
 
 public class AllocationCreateDTO
 {
-    [Range(1, int.MaxValue, ErrorMessage = "Invalid EmployeeId")]
-    [Required]
+    [Required(ErrorMessage = "Employee ID is required")]
     public int EmployeeId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Invalid ProjectId")]
-    [Required]
+    [Required(ErrorMessage = "Project ID is reuired")]
     public int ProjectId { get; set; }
 
     [Range(1, 100, ErrorMessage = "Utilization percentage must be between 1 and 100")]

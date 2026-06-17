@@ -23,6 +23,7 @@ namespace VivreSync.HR.Repositories
         public Employee? GetById(int id)
         {
             return _context.Employees
+                .Include(e => e.User)
                 .Include(e => e.EmployeeSkills)
                 .ThenInclude(es => es.Skill)
                 .FirstOrDefault(e => e.Id == id);

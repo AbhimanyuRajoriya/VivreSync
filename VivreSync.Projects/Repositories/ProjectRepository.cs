@@ -14,14 +14,12 @@ public class ProjectRepository: IProjectRepository
     {
         return _context.Projects
             .Include(p => p.Manager)
-            .Include(p => p.Milestones)
             .ToList();
     }
     public Project? GetById(int id)
     {
         return _context.Projects
             .Include(p => p.Manager)
-            .Include(p => p.Milestones)
             .FirstOrDefault(p => p.Id == id);
     }
     public void Add(Project project)
@@ -35,5 +33,20 @@ public class ProjectRepository: IProjectRepository
     public void SaveChanges()
     {
         _context.SaveChanges();
+    }
+    public Project? GetProjectHealth(int projectid)
+    {
+        return _context.Projects
+       .Include(p => p.Milestones)
+       .FirstOrDefault(p => p.Id == projectid);
+    }
+
+    public List<Allocation> GetEmployeesinProject(int projectId, DateOnly today)
+    {
+        return _context.Allocations
+       .Include(a => a.Employee)
+       .Where(a =>
+           a.ProjectId == projectId &&
+           a.StartDate <= today && a.EndDate >= today).ToList();
     }
 }

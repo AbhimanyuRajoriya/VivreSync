@@ -6,5 +6,7 @@ public interface IProjectRepository
     Project? GetById(int id);
     void Add(Project project);
     void Update(Project project);
+    Project? GetProjectHealth(int projectId);
+    List<Allocation> GetEmployeesinProject(int projectId, DateOnly today);
     void SaveChanges();
 }

@@ -1,4 +1,5 @@
 using VivreSync.Model.Entities;
+using VivreSync.Model.Enums;
 using VivreSync.Projects.DTOs;
 using VivreSync.Projects.Repositories;
 
@@ -19,7 +20,7 @@ public class MilestoneService : IMilestoneService
         return milestones.Select(m => new MilestoneResponseDTO
         {
             Id = m.Id,
-            Title = m.Title,
+            Progress = m.Title,
             DueDate = m.DueDate,
             Status = m.Status.ToString(),
             ProjectId = m.ProjectId,
@@ -36,7 +37,7 @@ public class MilestoneService : IMilestoneService
         return new MilestoneResponseDTO
         {
             Id = milestone.Id,
-            Title = milestone.Title,
+            Progress = milestone.Title,
             DueDate = milestone.DueDate,
             Status = milestone.Status.ToString(),
             ProjectId = milestone.ProjectId,
@@ -50,7 +51,7 @@ public class MilestoneService : IMilestoneService
         return milestones.Select(m => new MilestoneResponseDTO
         {
             Id = m.Id,
-            Title = m.Title,
+            Progress = m.Title,
             DueDate = m.DueDate,
             Status = m.Status.ToString(),
             ProjectId = m.ProjectId,
@@ -66,7 +67,7 @@ public class MilestoneService : IMilestoneService
 
         var milestone = new Milestone
         {
-            Title = dto.Title,
+            Title = dto.Progress,
             DueDate = dto.DueDate,
             ProjectId = dto.ProjectId
         };
@@ -76,7 +77,7 @@ public class MilestoneService : IMilestoneService
         return new MilestoneResponseDTO
         {
             Id = milestone.Id,
-            Title = milestone.Title,
+            Progress = milestone.Title,
             DueDate = milestone.DueDate,
             Status = milestone.Status.ToString(),
             ProjectId = milestone.ProjectId,
@@ -90,9 +91,13 @@ public class MilestoneService : IMilestoneService
         if (milestone == null)
             return false;
 
-        milestone.Title = dto.Title;
+        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, ignoreCase: true, out var parsedStatus);
+        if (!isValidStatus)
+            return false;
+
+        milestone.Title = dto.Progress;
         milestone.DueDate = dto.DueDate;
-        milestone.Status = dto.Status;
+        milestone.Status = parsedStatus;
 
         _milestoneRepository.Update(milestone);
         _milestoneRepository.SaveChanges();

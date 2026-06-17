@@ -149,4 +149,38 @@ public class AllocationService : IAllocationService
 
         return true;
     }
+    public List<EmployeeAllocationDTO>? GetFreeEmployee()
+    {
+        return GetEmployeeTable().Where(e => e.AvailableCapacity > 0).ToList(); ;
+    }
+    public List<EmployeeAllocationDTO>? GetOccupiedEmployee()
+    {
+        return GetEmployeeTable().Where(e => e.TotalAllocation == 100).ToList();
+    }
+    public List<EmployeeAllocationDTO>? GetEmployeeTable()
+    {
+        var employee = _employeeRepository.GetAll();
+        if (employee == null)
+            return null;
+        var allocation = _allocationRepository.GetAll();
+        if (allocation == null)
+            return null;
+
+        var result = employee.Select(e =>
+        {
+            var active = allocation
+            .Where(a => a.EmployeeId == e.Id).ToList();
+            var totalallocation = active.Sum(a => a.UtilizationPercentage);
+            return new EmployeeAllocationDTO
+            {
+                EmployeeId = e.Id,
+                EmployeeName = e.FullName,
+                TotalAllocation = totalallocation,
+                AvailableCapacity = 100 - totalallocation,
+                Projects = active.Select(a => $"{a.Project.Name} - {a.UtilizationPercentage}%").ToList()
+            };
+        }).ToList();
+
+        return result;
+    }
 }

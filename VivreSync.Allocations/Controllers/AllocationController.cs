@@ -55,6 +55,27 @@ namespace VivreSync.Allocations.Controllers
             return Ok();
         }
 
+        [HttpGet("GetAllEmployees")]
+        public IActionResult GetAllEmplyee()
+        {
+            var employees = _allocationService.GetEmployeeTable();
+            return Ok(employees);
+        }
+
+        [HttpGet("FreeEmployees")]
+        public IActionResult GetFreeEmployees()
+        {
+            var employees = _allocationService.GetFreeEmployee();
+            return Ok(employees);
+        }
+
+        [HttpGet("OccupiedEmployees")]
+        public IActionResult GetOccupiedEmployees()
+        {
+            var employees = _allocationService.GetOccupiedEmployee();
+            return Ok(employees);
+        }
+
         [HttpDelete("Delete/{id}")]
         public IActionResult Delete(int id)
         {

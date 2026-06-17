@@ -4,11 +4,11 @@ namespace VivreSync.Allocations.DTOs;
 
 public class AllocationUpdateDTO
 {
-    [Range(1, int.MaxValue, ErrorMessage = "Invalid EmployeeId")]
+    [Range(1, 1000, ErrorMessage = "Invalid EmployeeId")]
     [Required]
     public int EmployeeId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Invalid ProjectId")]
+    [Range(1, 1000, ErrorMessage = "Invalid ProjectId")]
     [Required]
     public int ProjectId { get; set; }
 

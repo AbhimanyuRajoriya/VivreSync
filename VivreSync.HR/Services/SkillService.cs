@@ -24,13 +24,14 @@ namespace VivreSync.HR.Services
                 Name = s.Name
             }).ToList();
         }
-        public void CreateSkill(SkillCreateDTO dto)
+        public Skill CreateSkill(SkillCreateDTO dto)
         {
             var skill = new Skill
             {
                 Name = dto.Name
             };
             _skillRepository.AddSkill(skill);
+            return skill;
         }       
         public bool AssignSkillToEmployee(SkillAssignDTO dto)
         {

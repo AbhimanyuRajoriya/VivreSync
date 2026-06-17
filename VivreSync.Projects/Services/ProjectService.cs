@@ -1,7 +1,8 @@
-using VivreSync.Projects.Repositories;
-using VivreSync.Projects.DTOs;
 using VivreSync.HR.Repositories;
 using VivreSync.Model.Entities;
+using VivreSync.Model.Enums;
+using VivreSync.Projects.DTOs;
+using VivreSync.Projects.Repositories;
 namespace VivreSync.Projects.Services;
 public class ProjectService : IProjectService
 {
@@ -22,12 +23,7 @@ public class ProjectService : IProjectService
             Name = p.Name,
             Client = p.Client,
             ManagerId = p.ManagerId,
-            ManagerName = p.Manager.FullName,
-            Milestones = p.Milestones.Select(m => new ProjMilestoneResponseDTO
-            {
-                Title = m.Title,
-                DueDate = m.DueDate
-            }).ToList()
+            ManagerName = p.Manager.FullName
         }).ToList();
     }
     public ProjectResponseDTO? GetById(int id)
@@ -43,12 +39,7 @@ public class ProjectService : IProjectService
             Name = project.Name,
             Client = project.Client,
             ManagerId = project.ManagerId,
-            ManagerName = project.Manager.FullName,
-            Milestones = project.Milestones.Select(m => new ProjMilestoneResponseDTO
-            {
-                Title = m.Title,
-                DueDate = m.DueDate
-            }).ToList()
+            ManagerName = project.Manager.FullName
         };
     }
     public ProjectResponseDTO? Create(ProjectCreateDTO dto)
@@ -80,13 +71,8 @@ public class ProjectService : IProjectService
     public bool Update(ProjectUpdateDTO dto)
     {
         var project = _projectRepository.GetById(dto.Id);
-
-        if (project == null)
-            return false;
-
         var manager = _employeeRepository.GetById(dto.ManagerId);
-
-        if (manager == null)
+        if (project == null || manager == null)
             return false;
 
         project.Name = dto.Name;
@@ -97,5 +83,70 @@ public class ProjectService : IProjectService
         _projectRepository.SaveChanges();
 
         return true;
+    }
+
+    public ProjectHealthResponseDTO? GetProjectHealth(int projectId)
+    {
+        var project = _projectRepository.GetProjectHealth(projectId);
+        if (project == null)
+            return null;
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        var activeAllocations = _projectRepository
+            .GetEmployeesinProject(projectId, today);
+
+        var reasons = new List<string>();
+
+        var delayedMilestones = project.Milestones
+            .Where(m => m.Status.ToString() == "Delayed").ToList();
+
+        var overdueMilestones = project.Milestones
+            .Where(m =>
+                m.DueDate < today &&
+                m.Status.ToString() != "Completed").ToList();
+
+        string health;
+
+        if (delayedMilestones.Any() || overdueMilestones.Any())
+        {
+            health = "Delayed";
+
+            if (delayedMilestones.Any())
+                reasons.Add($"{delayedMilestones.Count} milestone is marked delayed");
+
+            if (overdueMilestones.Any())
+                reasons.Add($"{overdueMilestones.Count} milestone is overdue");
+        }
+        else
+        {
+            health = "OnTrack";
+            reasons.Add("Project milestones and team allocation are on track");
+        }
+
+        return new ProjectHealthResponseDTO
+        {
+            ProjectID = project.Id,
+            ProjectName = project.Name,
+            Health = health,
+            Reasons = reasons,
+
+            Milestones = project.Milestones.Select(m => new ProjectMilestoneReponseDTO
+            {
+                MilestoneId = m.Id,
+                Progress = m.Title,
+                DueDate = m.DueDate,
+                Status = m.Status.ToString()
+            }).ToList(),
+
+            Team = activeAllocations.Select(a => new ProjectTeamResponseDTO
+            {
+                EmployeeId = a.EmployeeId,
+                EmployeeName = a.Employee.FullName,
+                UtilizationPercentage = a.UtilizationPercentage,
+                StartDate = a.StartDate,
+                EndDate = a.EndDate
+            }).ToList()
+        };
     }
 }

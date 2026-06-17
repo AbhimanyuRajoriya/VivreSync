@@ -73,6 +73,10 @@ namespace VivreSync.Structure.Data
                 .HasForeignKey(m => m.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Users>()
+                .HasIndex(u => u.UserName)
+                .IsUnique();
+
             var admin = new Users
             {
                 Id = 1,

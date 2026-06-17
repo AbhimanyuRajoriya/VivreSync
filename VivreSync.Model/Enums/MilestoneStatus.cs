@@ -2,8 +2,9 @@
 {
     public enum MilestoneStatus
     {
-        OnTrack,
-        AtRisk,
-        Delayed
+        OnTrack=1,
+        AtRisk=2,
+        Delayed=3,
+        Completed=4
     }
 }

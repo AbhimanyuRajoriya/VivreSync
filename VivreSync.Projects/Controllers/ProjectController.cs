@@ -22,6 +22,13 @@ namespace VivreSync.Projects.Controllers
             return Ok(projects);
         }
 
+        [HttpGet("ProjectHealth")]
+        public IActionResult GetProjectHealth(int id)
+        {
+            var result = _projectService.GetProjectHealth(id);
+            return Ok(result);
+        }
+
         [HttpPost("CreateProject")]
         public IActionResult Create(ProjectCreateDTO dto)
         {

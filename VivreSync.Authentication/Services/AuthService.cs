@@ -37,6 +37,9 @@ namespace VivreSync.Authentication.Services
             if (!isPasswordValid)
                 return null;
 
+            if (!user.IsActive)
+                return null;
+
             var token = GenerateJwtToken(user);
 
             return new LoginResponseDTO
@@ -52,6 +55,8 @@ namespace VivreSync.Authentication.Services
             var user = _authRepository.GetUserByUsernameAsync(dto.Username);
 
             if (user == null)
+                return false;
+            if (!user.IsActive)
                 return false;
 
             bool isPasswordValid = _passwordHasherService.VerifyPassword(

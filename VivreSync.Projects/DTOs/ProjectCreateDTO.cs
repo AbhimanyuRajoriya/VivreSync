@@ -4,16 +4,16 @@ namespace VivreSync.Projects.DTOs
 {
     public class ProjectCreateDTO
     {
-        [Required]
+        [Required(ErrorMessage ="Enter Project Title")]
         [StringLength(100)]
         public string Name { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage ="Enter client Name")]
         [StringLength(100)]
         public string Client { get; set; } = string.Empty;
 
         [Range(1, int.MaxValue, ErrorMessage = "Invalid ManagerId")]
-        [Required]
+        [Required(ErrorMessage ="Manager ID is required")]
         public int ManagerId { get; set; }
     }
 }

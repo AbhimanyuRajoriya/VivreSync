@@ -19,22 +19,23 @@ namespace VivreSync.HR.Services
         {
             var employees = _repository.GetAll();
 
-            return employees.Select(e => new EmployeeResponseDTO
-            {
-                Id = e.Id,
-                FullName = e.FullName,
-                Email = e.Email,
-                Designation = e.Designation,
-                IsActive = e.IsActive,
-
-                Skills = e.EmployeeSkills.Select(es => new EmployeeSkillResponseDTO
+            return employees.Where(e => e.IsActive)
+                .Select(e => new EmployeeResponseDTO
                 {
-                    SkillId = es.SkillId,
-                    SkillName = es.Skill.Name,
-                    Level = es.Level.ToString()
-                }).ToList()
+                    Id = e.Id,
+                    FullName = e.FullName,
+                    Email = e.Email,
+                    Designation = e.Designation,
+                    IsActive = e.IsActive,
 
-            }).ToList();
+                    Skills = e.EmployeeSkills.Select(es => new EmployeeSkillResponseDTO
+                    {
+                        SkillId = es.SkillId,
+                        SkillName = es.Skill.Name,
+                        Level = es.Level.ToString()
+                    }).ToList()
+
+                }).ToList();
         }
 
         public EmployeeResponseDTO? GetById(int id)
@@ -42,6 +43,9 @@ namespace VivreSync.HR.Services
             var employee = _repository.GetById(id);
 
             if (employee == null)
+                return null;
+
+            if (!employee.IsActive)
                 return null;
 
             return new EmployeeResponseDTO
@@ -114,12 +118,31 @@ namespace VivreSync.HR.Services
             if (employee == null)
                 return null;
 
+            employee.FullName = dto.Name;
+            employee.Designation = dto.Designation;
             employee.IsActive = dto.IsActive;
 
             _repository.Update(employee);
             _repository.SaveChanges();
 
             return employee;
+        }
+        public bool Deactivate(int id)
+        {
+            var employee = _repository.GetById(id);
+            if (employee == null)
+                return false;
+
+            employee.IsActive = false;
+            if (employee.User != null)
+            {
+                employee.User.IsActive = false;
+            }
+
+            _repository.Update(employee);
+            _repository.SaveChanges();
+
+            return true;
         }
     }
 }

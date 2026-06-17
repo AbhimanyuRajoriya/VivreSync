@@ -6,7 +6,7 @@ namespace VivreSync.HR.Services
     public interface ISkillService
     {
         List<SkillResponseDTO> GetAllSkills();
-        void CreateSkill(SkillCreateDTO dto);
+        Skill CreateSkill(SkillCreateDTO dto);
         bool AssignSkillToEmployee(SkillAssignDTO dto);
     }
 }
