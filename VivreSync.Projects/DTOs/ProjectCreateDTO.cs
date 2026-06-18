@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using VivreSync.Model.Enums;
 
 namespace VivreSync.Projects.DTOs
 {
@@ -11,6 +12,7 @@ namespace VivreSync.Projects.DTOs
         [Required(ErrorMessage ="Enter client Name")]
         [StringLength(100)]
         public string Client { get; set; } = string.Empty;
+        public ProjectStatus Status { get; set; } = ProjectStatus.Active;
 
         [Range(1, int.MaxValue, ErrorMessage = "Invalid ManagerId")]
         [Required(ErrorMessage ="Manager ID is required")]

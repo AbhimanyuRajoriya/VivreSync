@@ -22,6 +22,7 @@ public class ProjectService : IProjectService
             Id = p.Id,
             Name = p.Name,
             Client = p.Client,
+            Status = p.Status.ToString(),
             ManagerId = p.ManagerId,
             ManagerName = p.Manager.FullName
         }).ToList();
@@ -38,6 +39,7 @@ public class ProjectService : IProjectService
             Id = project.Id,
             Name = project.Name,
             Client = project.Client,
+            Status = project.Status.ToString(),
             ManagerId = project.ManagerId,
             ManagerName = project.Manager.FullName
         };
@@ -53,6 +55,7 @@ public class ProjectService : IProjectService
         {
             Name = dto.Name,
             Client = dto.Client,
+            Status = dto.Status,
             ManagerId = dto.ManagerId
         };
 
@@ -64,6 +67,7 @@ public class ProjectService : IProjectService
             Id = project.Id,
             Name = project.Name,
             Client = project.Client,
+            Status = project.Status.ToString(),
             ManagerId = project.ManagerId,
             ManagerName = manager.FullName
         };
@@ -77,6 +81,7 @@ public class ProjectService : IProjectService
 
         project.Name = dto.Name;
         project.Client = dto.Client;
+        project.Status = dto.Status;
         project.ManagerId = dto.ManagerId;
 
         _projectRepository.Update(project);
@@ -118,10 +123,16 @@ public class ProjectService : IProjectService
             if (overdueMilestones.Any())
                 reasons.Add($"{overdueMilestones.Count} milestone is overdue");
         }
+        else if (!activeAllocations.Any())
+        {
+            health = "AtRisk";
+            if (!activeAllocations.Any())
+                reasons.Add("No employee is allocated for this project");
+        }
         else
         {
             health = "OnTrack";
-            reasons.Add("Project milestones and team allocation are on track");
+            reasons.Add("Project is on track");
         }
 
         return new ProjectHealthResponseDTO

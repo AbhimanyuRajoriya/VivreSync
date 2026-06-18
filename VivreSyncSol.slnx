@@ -6,6 +6,7 @@
   <Project Path="VivreSync.Projects/VivreSync.Projects.csproj" />
   <Project Path="VivreSync.Shared/VivreSync.Shared.csproj" />
   <Project Path="VivreSync.Structure/VivreSync.Structure.csproj" Id="b6ff0b98-7702-4ff7-aa27-e6895b3b4207" />
+  <Project Path="VivreSync.Tests/VivreSync.Tests.csproj" Id="a5421385-a779-4a4a-9eff-cc4b323ddc5b" />
   <Project Path="VivreSync.Timesheets/VivreSync.Timesheets.csproj" />
   <Project Path="VivreSync/VivreSync.csproj" />
 </Solution>

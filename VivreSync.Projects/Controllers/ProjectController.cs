@@ -40,10 +40,9 @@ namespace VivreSync.Projects.Controllers
             return Ok(project);
         }
 
-        [HttpPost("UpdateProject/{id}")]
-        public IActionResult Update(int id, ProjectUpdateDTO dto)
+        [HttpPost("UpdateProject")]
+        public IActionResult Update(ProjectUpdateDTO dto)
         {
-            dto.Id = id;
             var result = _projectService.Update(dto);
 
             if (!result)
