@@ -1,14 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="16.1.1" />
-    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.11" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\VivreSync.Model\VivreSync.Model.csproj" />
     <ProjectReference Include="..\VivreSync.Shared\VivreSync.Shared.csproj" />
     <ProjectReference Include="..\VivreSync.Structure\VivreSync.Structure.csproj" />
+    <ProjectReference Include="..\VivreSync.HR\VivreSync.HR.csproj" />
+    <ProjectReference Include="..\VivreSync.Projects\VivreSync.Projects.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

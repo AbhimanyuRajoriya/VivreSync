@@ -18,6 +18,8 @@ using VivreSync.Projects.Services;
 using VivreSync.Projects.Repositories;
 using VivreSync.Allocations.Repositories;
 using VivreSync.Allocations.Services;
+using VivreSync.Timesheets.Repositories;
+using VivreSync.Timesheets.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers().
@@ -54,6 +56,9 @@ builder.Services.AddScoped<IMilestoneService, MilestoneService>();
 
 builder.Services.AddScoped<IAllocationRepository, AllocationRepository>();
 builder.Services.AddScoped<IAllocationService, AllocationService>();
+
+builder.Services.AddScoped<ITimesheetsRepository, TimesheetRepository>();
+builder.Services.AddScoped<ITimesheetsService, TimesheetsService>();
 
 builder.Services.AddAuthentication(options =>
 {
