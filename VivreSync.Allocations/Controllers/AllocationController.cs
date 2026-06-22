@@ -22,7 +22,7 @@ namespace VivreSync.Allocations.Controllers
             return Ok(allocations);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("GetById/{id}")]
         public IActionResult GetById(int id)
         {
             var allocation = _allocationService.GetById(id);

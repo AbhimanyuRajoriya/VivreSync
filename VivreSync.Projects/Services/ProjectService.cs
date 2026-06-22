@@ -3,6 +3,7 @@ using VivreSync.Model.Entities;
 using VivreSync.Model.Enums;
 using VivreSync.Projects.DTOs;
 using VivreSync.Projects.Repositories;
+using VivreSync.Shared.Exceptions;
 namespace VivreSync.Projects.Services;
 public class ProjectService : IProjectService
 {
@@ -32,7 +33,7 @@ public class ProjectService : IProjectService
         var project = _projectRepository.GetById(id);
 
         if (project == null)
-            return null;
+            throw new NotFoundException("Project does not exist"); ;
 
         return new ProjectResponseDTO
         {
@@ -48,8 +49,11 @@ public class ProjectService : IProjectService
     {
         var manager = _employeeRepository.GetById(dto.ManagerId);
 
-        if (manager == null)
-            return null;
+        if (manager == null || !manager.IsActive)
+            throw new BadRequestException("Manager must be an active employee");
+
+        if (manager.User == null || manager.User.Role != UserRoles.Manager)
+            throw new BadRequestException("Employee must have Manager role");
 
         var project = new Project
         {
@@ -75,9 +79,15 @@ public class ProjectService : IProjectService
     public bool Update(ProjectUpdateDTO dto)
     {
         var project = _projectRepository.GetById(dto.Id);
+        if (project == null)
+            throw new NotFoundException("Invalid Project ID");
+
         var manager = _employeeRepository.GetById(dto.ManagerId);
-        if (project == null || manager == null)
-            return false;
+        if (manager == null || !manager.IsActive)
+            throw new BadRequestException("Manager must be an active employee");
+
+        if (manager.User == null || manager.User.Role != UserRoles.Manager)
+            throw new BadRequestException("Employee must have Manager role");
 
         project.Name = dto.Name;
         project.Client = dto.Client;
@@ -94,7 +104,7 @@ public class ProjectService : IProjectService
     {
         var project = _projectRepository.GetProjectHealth(projectId);
         if (project == null)
-            return null;
+            throw new NotFoundException("Project does not exist");
 
         var today = DateOnly.FromDateTime(DateTime.Today);
 

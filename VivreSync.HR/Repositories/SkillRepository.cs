@@ -19,6 +19,10 @@ namespace VivreSync.HR.Repositories
         {   
             return _context.Skills.FirstOrDefault(s => s.Id == id);
         }
+        public Skill? ExistingSkill(string name)
+        {
+            return _context.Skills.FirstOrDefault(s => s.Name == name);
+        }
         public void AddSkill(Skill skill)
         {
             _context.Skills.Add(skill);

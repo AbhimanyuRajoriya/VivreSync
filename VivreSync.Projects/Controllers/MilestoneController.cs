@@ -36,6 +36,8 @@ public class MilestonesController : ControllerBase
     public IActionResult GetByProjectId(int projectId)
     {
         var milestones = _milestoneService.GetByProjectId(projectId);
+        if (milestones == null)
+            return BadRequest();
         return Ok(milestones);
     }
 

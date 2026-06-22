@@ -2,6 +2,7 @@
 using VivreSync.Model.Entities;
 using VivreSync.Model.Enums;
 using VivreSync.HR.DTOs;
+using VivreSync.Shared.Exceptions;
 namespace VivreSync.HR.Services
 {
     public class SkillService : ISkillService
@@ -24,12 +25,21 @@ namespace VivreSync.HR.Services
                 Name = s.Name
             }).ToList();
         }
-        public Skill CreateSkill(SkillCreateDTO dto)
+        public Skill? CreateSkill(SkillCreateDTO dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                throw new BadRequestException("Enter Proper Skill");
+            
+            var skillName = dto.Name.Trim().ToLower();
+
+            if (_skillRepository.ExistingSkill(skillName) != null)
+                throw new BadRequestException("Skill Already Exists");
+
             var skill = new Skill
             {
-                Name = dto.Name
+                Name = skillName
             };
+            
             _skillRepository.AddSkill(skill);
             return skill;
         }       
@@ -38,11 +48,11 @@ namespace VivreSync.HR.Services
             var employee = _employeeRepository.GetById(dto.EmployeeId);
             var skill = _skillRepository.GetById(dto.SkillId);
 
-            if (employee == null || skill == null)
-                return false;
+            if (employee == null || !employee.IsActive || skill == null)
+                throw new BadRequestException("Enter valid ID");
 
-            if (!Enum.TryParse(dto.Level, true, out Levels level))
-                return false;
+            if (!Enum.TryParse(dto.Level, true, out Levels level) || !Enum.IsDefined(typeof(Levels), level))
+                throw new BadRequestException("Enter Valid Level of Skill");
 
             var employeeSkill = _skillRepository.GetEmployeeSkill(dto.EmployeeId, dto.SkillId);
 

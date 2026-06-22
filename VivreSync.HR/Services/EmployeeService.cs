@@ -3,6 +3,7 @@ using VivreSync.Model.Entities;
 using VivreSync.HR.DTOs;
 using VivreSync.Model.Enums;
 using Microsoft.AspNetCore.Identity;
+using VivreSync.Shared.Exceptions;
 namespace VivreSync.HR.Services
 {
     public class EmployeeService : IEmployeeService
@@ -43,10 +44,10 @@ namespace VivreSync.HR.Services
             var employee = _repository.GetById(id);
 
             if (employee == null)
-                return null;
+                throw new NotFoundException("Employee not found");
 
             if (!employee.IsActive)
-                return null;
+                throw new NotFoundException("Employee not active");
 
             return new EmployeeResponseDTO
             {
@@ -70,18 +71,15 @@ namespace VivreSync.HR.Services
             var existingUser = _userRepository.GetUser(username);
 
             if (existingUser != null)
-                return null;
+                throw new BadRequestException("Username Already occupied");
             
-            var isValidRole = Enum.TryParse<UserRoles>(
-            dto.Role,
-            ignoreCase: true,
-            out var parsedRole);
+            var isValidRole = Enum.TryParse<UserRoles>(dto.Role, ignoreCase: true, out var parsedRole) || !Enum.IsDefined(typeof(UserRoles), parsedRole);
 
             if (!isValidRole)
-                return null;
+                throw new BadRequestException("Invalid Role"); ;
 
             if (parsedRole == UserRoles.Admin)
-                return null;
+                throw new BadRequestException("Cannot Grant Admin Role"); ;
 
             var user = new Users
             {
@@ -113,14 +111,19 @@ namespace VivreSync.HR.Services
         }
         public Employee? Update(EmployeeUpdateDTO dto)
         {
-            var employee = _repository.GetById(dto.Id);
+            var employee = _repository.GetById(dto.EmployeeId);
 
             if (employee == null)
-                return null;
+                throw new NotFoundException("Employee does not exists");
 
-            employee.FullName = dto.Name;
+            employee.FullName = dto.FullName;
             employee.Designation = dto.Designation;
             employee.IsActive = dto.IsActive;
+
+            if (employee.User != null)
+            {
+                employee.User.IsActive = dto.IsActive;
+            }
 
             _repository.Update(employee);
             _repository.SaveChanges();
@@ -131,7 +134,7 @@ namespace VivreSync.HR.Services
         {
             var employee = _repository.GetById(id);
             if (employee == null)
-                return false;
+                throw new NotFoundException("Employee does not exists");
 
             employee.IsActive = false;
             if (employee.User != null)

@@ -13,7 +13,7 @@ namespace VivreSync.Authentication.Repositories
 
         public Users? GetUserByUsernameAsync(string username)
         {
-            return _context.Users.FirstOrDefault(u => u.UserName == username && u.IsActive);
+            return _context.Users.FirstOrDefault(u => u.UserName == username);
         }
         public void SaveChanges()
         {

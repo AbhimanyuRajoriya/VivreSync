@@ -10,5 +10,6 @@ namespace VivreSync.HR.Repositories
         void SaveSkill();
         EmployeeSkill? GetEmployeeSkill(int employeeId, int skillId);
         void AssignSkill(EmployeeSkill employeeSkill);
+        Skill? ExistingSkill(string name);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Text.Json;
 
 namespace VivreSync.Shared.Exceptions
@@ -21,27 +22,33 @@ namespace VivreSync.Shared.Exceptions
             {
                 await _next(context);
             }
-            catch (ArgumentException ex)
+            catch (Exception exception)
             {
-                context.Response.StatusCode = 400;
-                context.Response.ContentType = "application/json";
+                await HandleExceptionAsync(context, exception);
+            }
+        }
 
-                await context.Response.WriteAsync(
-                    JsonSerializer.Serialize(new
-                    {
-                        Message = ex.Message
-                    }));
-            }
-            catch (Exception ex)
+        private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+        {
+            var statusCode = exception switch
             {
-                context.Response.StatusCode = 500;
-                context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(
-                    JsonSerializer.Serialize(new
-                    {
-                        Message = "An unexpected error occurred. Please try again later."
-                    }));
-            }
+                NotFoundException => HttpStatusCode.NotFound,
+                BadRequestException => HttpStatusCode.BadRequest,
+                UnauthorizedException => HttpStatusCode.Unauthorized,
+                _ => HttpStatusCode.InternalServerError
+            };
+
+            var response = new
+            {
+                message = exception.Message
+            };
+
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = (int)statusCode;
+
+            var jsonResponse = JsonSerializer.Serialize(response);
+
+            return context.Response.WriteAsync(jsonResponse);
         }
     }
 }

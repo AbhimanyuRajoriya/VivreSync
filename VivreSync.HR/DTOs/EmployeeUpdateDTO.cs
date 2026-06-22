@@ -6,9 +6,9 @@ namespace VivreSync.HR.DTOs
     {
         [Range(1, 1000, ErrorMessage = "Invalid Id")]
         [Required(ErrorMessage ="Employee Id is required")]
-        public int Id { get; set; }
+        public int EmployeeId { get; set; }
         [Required]
-        public string Name { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
         public string Designation { get; set; } = string.Empty;
         public bool IsActive { get; set; } = false;
     }

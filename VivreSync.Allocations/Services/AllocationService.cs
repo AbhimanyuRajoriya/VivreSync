@@ -1,8 +1,9 @@
-using VivreSync.Allocations.Repositories;
 using VivreSync.Allocations.DTOs;
-using VivreSync.Model.Entities;
+using VivreSync.Allocations.Repositories;
 using VivreSync.HR.Repositories;
+using VivreSync.Model.Entities;
 using VivreSync.Projects.Repositories;
+using VivreSync.Shared.Exceptions;
 namespace VivreSync.Allocations.Services;
 public class AllocationService : IAllocationService
 {
@@ -39,7 +40,7 @@ public class AllocationService : IAllocationService
         var allocation = _allocationRepository.GetById(id);
 
         if (allocation == null)
-            return null;
+            throw new NotFoundException("Allocation Not Found");
 
         return new AllocationResponseDTO
         {
@@ -59,19 +60,19 @@ public class AllocationService : IAllocationService
         var employee = _employeeRepository.GetById(dto.EmployeeId);
         var project = _projectRepository.GetById(dto.ProjectId);
         if (employee == null || project == null)
-            return null;
+            throw new BadRequestException("Enter vaid employee and project ID");
 
         if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
-            return null;
+            throw new BadRequestException("Enter valid Valid Utilizaition Percentage");
 
         if (dto.StartDate > dto.EndDate)
-            return null;
+            throw new BadRequestException("Enter valid Date Range");
 
         var overlappingAllocations = _allocationRepository.GetOverlappingAllocations( dto.EmployeeId, dto.StartDate,dto.EndDate);
 
         var currentAllocation = overlappingAllocations.Sum(a => a.UtilizationPercentage);
         if (currentAllocation + dto.UtilizationPercentage > 100)
-            return null;
+            throw new BadRequestException("Cannot Allocate current Utilization");
 
         var allocation = new Allocation
         {
@@ -102,7 +103,7 @@ public class AllocationService : IAllocationService
         var allocation = _allocationRepository.GetById(id);
 
         if (allocation == null)
-            return false;
+            throw new NotFoundException("Allcation Not Found");
 
         _allocationRepository.Delete(allocation);
 
@@ -114,18 +115,18 @@ public class AllocationService : IAllocationService
         var allocation = _allocationRepository.GetById(id);
 
         if (allocation == null)
-            return false;
+            throw new NotFoundException("Allocation Not Found");
 
         var employee = _employeeRepository.GetById(dto.EmployeeId);
         var project = _projectRepository.GetById(dto.ProjectId);
         if (employee == null || project == null)
-            return false;
+            throw new BadRequestException("Enter Valid Employee and Prject ID");
 
         if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
-            return false;
+            throw new BadRequestException("Invalid Utilization Percentage");
 
         if (dto.StartDate > dto.EndDate)
-            return false;
+            throw new BadRequestException("Invalid Date Range");
 
         var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(
             dto.EmployeeId,
@@ -137,7 +138,7 @@ public class AllocationService : IAllocationService
             .Sum(a => a.UtilizationPercentage);
 
         if (currentAllocation + dto.UtilizationPercentage > 100)
-            return false;
+            throw new BadRequestException("Cannot Allocate requested utilization");
 
         allocation.EmployeeId = dto.EmployeeId;
         allocation.ProjectId = dto.ProjectId;
@@ -151,25 +152,29 @@ public class AllocationService : IAllocationService
     }
     public List<EmployeeAllocationDTO>? GetFreeEmployee()
     {
-        return GetEmployeeTable().Where(e => e.AvailableCapacity > 0).ToList(); ;
+        return GetEmployeeTable()?.Where(e => e.AvailableCapacity > 0).ToList(); ;
     }
     public List<EmployeeAllocationDTO>? GetOccupiedEmployee()
     {
-        return GetEmployeeTable().Where(e => e.TotalAllocation == 100).ToList();
+        return GetEmployeeTable()?.Where(e => e.TotalAllocation == 100).ToList();
     }
     public List<EmployeeAllocationDTO>? GetEmployeeTable()
     {
         var employee = _employeeRepository.GetAll();
         if (employee == null)
-            return null;
+            throw new BadRequestException("Employee cannot be loaded");
+
         var allocation = _allocationRepository.GetAll();
         if (allocation == null)
-            return null;
+            throw new BadRequestException("Allocations cannot be loaded");
 
-        var result = employee.Select(e =>
+        var result = employee.Where(e=> e.IsActive).Select(e =>
         {
+            var today = DateOnly.FromDateTime(DateTime.Today);
             var active = allocation
-            .Where(a => a.EmployeeId == e.Id).ToList();
+                .Where(a =>a.EmployeeId == e.Id &&
+                    a.StartDate <= today && a.EndDate >= today).ToList();
+                    
             var totalallocation = active.Sum(a => a.UtilizationPercentage);
             return new EmployeeAllocationDTO
             {

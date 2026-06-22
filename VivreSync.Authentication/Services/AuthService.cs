@@ -1,12 +1,13 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using VivreSync.Authentication.Security;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using VivreSync.Authentication.DTOs;
 using VivreSync.Authentication.Repositories;
+using VivreSync.Authentication.Security;
 using VivreSync.Model.Entities;
+using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Authentication.Services
 {
@@ -24,10 +25,10 @@ namespace VivreSync.Authentication.Services
 
         public LoginResponseDTO? Login(LoginDTO dto)
         {
-            var user = _authRepository.GetUserByUsernameAsync(dto.Username);
-
+            var username = dto.Username.Trim().ToLower();
+            var user = _authRepository.GetUserByUsernameAsync(username);
             if (user == null)
-                return null;
+                throw new NotFoundException("User does not exist");
 
             bool isPasswordValid = _passwordHasherService.VerifyPassword(
                 dto.Password,
@@ -35,10 +36,10 @@ namespace VivreSync.Authentication.Services
             );
 
             if (!isPasswordValid)
-                return null;
+                throw new BadRequestException("Invalid Password");
 
             if (!user.IsActive)
-                return null;
+                throw new BadRequestException("User is not active");
 
             var token = GenerateJwtToken(user);
 
@@ -52,12 +53,13 @@ namespace VivreSync.Authentication.Services
 
         public bool ChangePassword(ChangePasswordDTO dto)
         {
-            var user = _authRepository.GetUserByUsernameAsync(dto.Username);
+            var username = dto.Username.Trim().ToLower();
+            var user = _authRepository.GetUserByUsernameAsync(username);
 
             if (user == null)
-                return false;
+                throw new NotFoundException("User does not exist");
             if (!user.IsActive)
-                return false;
+                throw new BadRequestException("User is inactive");
 
             bool isPasswordValid = _passwordHasherService.VerifyPassword(
                 dto.OldPassword,
@@ -65,7 +67,7 @@ namespace VivreSync.Authentication.Services
             );
 
             if (!isPasswordValid)
-                return false;
+                throw new BadRequestException("Invalid Password");
 
             user.PasswordHash = _passwordHasherService.HashPassword(dto.NewPassword);
             user.PasswordChangeRequired = false;

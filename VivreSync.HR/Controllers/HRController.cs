@@ -54,7 +54,7 @@ public class EmployeesController : ControllerBase
         return Ok("Employee updated successfully");
     }
 
-    [HttpPost("EmployeeDeactivate")]
+    [HttpPost("EmployeeDeactivate/{id}")]
     public IActionResult DeactiavteEmployee(int id)
     {
         var result = _service.Deactivate(id);

@@ -22,10 +22,12 @@ namespace VivreSync.Projects.Controllers
             return Ok(projects);
         }
 
-        [HttpGet("ProjectHealth")]
+        [HttpGet("ProjectHealth/{id}")]
         public IActionResult GetProjectHealth(int id)
         {
             var result = _projectService.GetProjectHealth(id);
+            if (result == null)
+                return BadRequest();
             return Ok(result);
         }
 

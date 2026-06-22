@@ -46,7 +46,7 @@ public class ProjectRepository: IProjectRepository
         return _context.Allocations
        .Include(a => a.Employee)
        .Where(a =>
-           a.ProjectId == projectId &&
+           a.ProjectId == projectId && a.Employee.IsActive &&
            a.StartDate <= today && a.EndDate >= today).ToList();
     }
 }

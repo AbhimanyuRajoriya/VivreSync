@@ -2,6 +2,7 @@ using VivreSync.Model.Entities;
 using VivreSync.Model.Enums;
 using VivreSync.Projects.DTOs;
 using VivreSync.Projects.Repositories;
+using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Projects.Services;
 public class MilestoneService : IMilestoneService
@@ -32,7 +33,7 @@ public class MilestoneService : IMilestoneService
     {
         var milestone = _milestoneRepository.GetById(id);
         if (milestone == null)
-            return null;
+            throw new NotFoundException("Milestone does not exists");
 
         return new MilestoneResponseDTO
         {
@@ -48,6 +49,9 @@ public class MilestoneService : IMilestoneService
     public List<MilestoneResponseDTO> GetByProjectId(int projectId)
     {
         var milestones = _milestoneRepository.GetByProjectId(projectId);
+        if (milestones == null)
+            throw new BadRequestException("Invalid project ID");
+
         return milestones.Select(m => new MilestoneResponseDTO
         {
             Id = m.Id,
@@ -63,7 +67,7 @@ public class MilestoneService : IMilestoneService
     {
         var project = _projectRepository.GetById(dto.ProjectId);
         if (project == null)
-            return null;
+            throw new NotFoundException("Project does not exist");
 
         var milestone = new Milestone
         {
@@ -89,11 +93,11 @@ public class MilestoneService : IMilestoneService
     {
         var milestone = _milestoneRepository.GetById(id);
         if (milestone == null)
-            return false;
+            throw new NotFoundException("Milestone does not exist");
 
-        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, ignoreCase: true, out var parsedStatus);
+        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, ignoreCase: true, out var parsedStatus) || !Enum.IsDefined(typeof(MilestoneStatus), parsedStatus);
         if (!isValidStatus)
-            return false;
+            throw new BadRequestException("Invalid status");
 
         milestone.Title = dto.Progress;
         milestone.DueDate = dto.DueDate;

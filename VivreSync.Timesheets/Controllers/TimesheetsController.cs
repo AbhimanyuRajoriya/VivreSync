@@ -22,7 +22,7 @@ namespace VivreSync.Timesheets.Controllers
             return Ok(timesheets);
         }
 
-        [HttpGet("GetTimeSheetById")]
+        [HttpGet("GetTimeSheetById/{id}")]
         public IActionResult GetTimesheetEmployee(int id)
         {
             var timesheet = _service.GetTimesheetById(id);
@@ -31,7 +31,7 @@ namespace VivreSync.Timesheets.Controllers
             return Ok(timesheet);
         }
 
-        [HttpGet("GetEmployeeById")]
+        [HttpGet("GetEmployeeById/{id}")]
         public IActionResult GetTimesheetsofEmployee(int id)
         {
             var timesheet = _service.GetByEmployeeId(id);
@@ -43,11 +43,13 @@ namespace VivreSync.Timesheets.Controllers
         [HttpPost("SubmitTimesheet")]
         public IActionResult CreateTimesheets(TimesheetCreateDTO dto)
         {
-            _service.CreateTimesheet(dto);
+            var timesheet =  _service.CreateTimesheet(dto);
+            if (timesheet == null)
+                return BadRequest("Cannot accept this request");
             return Ok("Timesheet Submitted");
         }
 
-        [HttpPost("EditTimesheet")]
+        [HttpPost("EditTimesheet/{id}")]
         public IActionResult UpdateTimesheets(int id,TimesheetUpdateDTO dto)
         {
             var result = _service.UpdateTimesheet(id,dto);
