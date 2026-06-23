@@ -95,7 +95,8 @@ public class MilestoneService : IMilestoneService
         if (milestone == null)
             throw new NotFoundException("Milestone does not exist");
 
-        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, ignoreCase: true, out var parsedStatus) || !Enum.IsDefined(typeof(MilestoneStatus), parsedStatus);
+        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, ignoreCase: true, out var parsedStatus)
+                         && Enum.IsDefined(typeof(MilestoneStatus), parsedStatus);
         if (!isValidStatus)
             throw new BadRequestException("Invalid status");
 

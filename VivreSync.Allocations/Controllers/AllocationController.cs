@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Services;
@@ -6,6 +7,7 @@ namespace VivreSync.Allocations.Controllers
 {
     [ApiController]
     [Route("api/allocations")]
+    [Authorize]
     public class AllocationsController : ControllerBase
     {
         private readonly IAllocationService _allocationService;
@@ -16,6 +18,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpGet("GetAll")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult GetAll()
         {
             var allocations = _allocationService.GetAll();
@@ -23,6 +26,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpGet("GetById/{id}")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult GetById(int id)
         {
             var allocation = _allocationService.GetById(id);
@@ -34,6 +38,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpPost("Create")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult Create(AllocationCreateDTO dto)
         {
             var allocation = _allocationService.Create(dto);
@@ -45,6 +50,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpPost("Update/{id}")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult Update(int id, AllocationUpdateDTO dto)
         {
             var success = _allocationService.Update(id, dto);
@@ -56,6 +62,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpGet("GetAllEmployees")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult GetAllEmplyee()
         {
             var employees = _allocationService.GetEmployeeTable();
@@ -63,6 +70,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpGet("FreeEmployees")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult GetFreeEmployees()
         {
             var employees = _allocationService.GetFreeEmployee();
@@ -70,6 +78,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpGet("OccupiedEmployees")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult GetOccupiedEmployees()
         {
             var employees = _allocationService.GetOccupiedEmployee();
@@ -77,6 +86,7 @@ namespace VivreSync.Allocations.Controllers
         }
 
         [HttpDelete("Delete/{id}")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult Delete(int id)
         {
             var success = _allocationService.Delete(id);

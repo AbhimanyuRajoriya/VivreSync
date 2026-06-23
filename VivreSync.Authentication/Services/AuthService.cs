@@ -82,7 +82,7 @@ namespace VivreSync.Authentication.Services
             var jwtKey = _configuration["Jwt:Key"];
             var jwtIssuer = _configuration["Jwt:Issuer"];
             var jwtAudience = _configuration["Jwt:Audience"];
-            var expiryMinutes = _configuration.GetValue<int>("Jwt:ExpiryMinutes");
+            var expiryMinutes = _configuration.GetValue<int>("Jwt:ExpireMinutes");
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtKey!)

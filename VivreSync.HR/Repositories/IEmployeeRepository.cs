@@ -9,5 +9,6 @@ namespace VivreSync.HR.Repositories
         void Add(Employee employee);
         void Update(Employee employee);
         void SaveChanges();
+        bool IsEmployeeLinkedToUser(int employeeId, int userId);
     }
 }

@@ -65,7 +65,7 @@ namespace VivreSync.Timesheets.Services
             if (string.IsNullOrWhiteSpace(dto.ActivityTag))
                 throw new BadRequestException("Invalid activity tag");
 
-            var isvalidactivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags) || !Enum.IsDefined(typeof(ActivityTags), activityTags);
+            var isvalidactivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags) && Enum.IsDefined(typeof(ActivityTags), activityTags);
             if(!isvalidactivity)
                 throw new BadRequestException("Invalid activity tag");
 
@@ -112,7 +112,8 @@ namespace VivreSync.Timesheets.Services
             if (string.IsNullOrWhiteSpace(dto.ActivityTag))
                 throw new BadRequestException("Invalid Activity Tag");
 
-            var isvalidactivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags) || !Enum.IsDefined(typeof(ActivityTags), activityTags);
+            var isvalidactivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags)
+                               && Enum.IsDefined(typeof(ActivityTags), activityTags);
             if (!isvalidactivity)
                 throw new BadRequestException("Enter Valid Activity Tag");
 
@@ -234,6 +235,16 @@ namespace VivreSync.Timesheets.Services
             var maxDate = new DateOnly(2100, 12, 31);
 
             return date >= minDate && date <= maxDate;
+        }
+
+        public bool IsTimesheetLinkedToUser(int timesheetId, int userId)
+        {
+            var timesheet = _repository.GetById(timesheetId);
+
+            if (timesheet == null)
+                throw new NotFoundException("Timesheet does not exist");
+
+            return timesheet.Employee.UserId == userId && timesheet.Employee.IsActive;
         }
 
     }

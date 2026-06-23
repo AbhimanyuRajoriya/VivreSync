@@ -9,5 +9,6 @@ namespace VivreSync.Timesheets.Services
         TimesheetResponseDTO? CreateTimesheet(TimesheetCreateDTO dto);
         bool UpdateTimesheet(int id, TimesheetUpdateDTO timesheet);
         List<TimesheetMissedDTO> GetMissedTimesheets(DateOnly weekStartDate);
+        bool IsTimesheetLinkedToUser(int timesheetId, int userId);
     }
 }

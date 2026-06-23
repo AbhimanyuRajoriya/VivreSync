@@ -15,6 +15,7 @@ namespace VivreSync.HR.Repositories
         public List<Employee> GetAll()
         {
             return _context.Employees
+                .Include(e => e.User)
                 .Include(e => e.EmployeeSkills)
                 .ThenInclude(es => es.Skill)
                 .ToList();
@@ -39,6 +40,13 @@ namespace VivreSync.HR.Repositories
         public void SaveChanges()
         {
             _context.SaveChanges();
+        }
+        public bool IsEmployeeLinkedToUser(int employeeId, int userId)
+        {
+            return _context.Employees.Any(e =>
+                e.Id == employeeId &&
+                e.UserId == userId &&
+                e.IsActive);
         }
     }
 }

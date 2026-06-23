@@ -1,11 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using VivreSync.HR.Services;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using VivreSync.HR.DTOs;
+using VivreSync.HR.Services;
+using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.HR.Controllers;
 
 [ApiController]
 [Route("api/employees")]
+[Authorize]
 public class EmployeesController : ControllerBase
 {
     private readonly IEmployeeService _service;
@@ -16,16 +20,25 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpGet("Employees")]
+    [Authorize(Roles = "Admin, Manager")]
     public IActionResult GetAll()
     {
         return Ok(_service.GetAll());
     }
 
     [HttpGet("employees/{id}")]
+    [Authorize(Roles = "Admin,Manager,Employee")]
     public IActionResult GetEmployeeById(int id)
     {
-        var employee = _service.GetById(id);
+        if (User.IsInRole("Employee"))
+        {
+            var currentUserId = GetCurrentUserId();
+            var isOwnProfile = _service.IsEmployeeLinkedToUser(id, currentUserId);
+            if (!isOwnProfile)
+                throw new UnauthorizedException("Cannot access this data");
+        }
 
+        var employee = _service.GetById(id);
         if (employee == null)
             return NotFound("Employee not found");
 
@@ -33,6 +46,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost("EmployeeAdd")]
+    [Authorize(Roles = "Admin")]
     public IActionResult CreateEmployee(EmployeeCreateDTO dto)
     {
         var employee = _service.Create(dto);
@@ -44,6 +58,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost("EmployeeUpdate")]
+    [Authorize(Roles = "Admin")]
     public IActionResult UpdateEmployee(EmployeeUpdateDTO dto)
     {
         var result = _service.Update(dto);
@@ -55,6 +70,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost("EmployeeDeactivate/{id}")]
+    [Authorize(Roles = "Admin")]
     public IActionResult DeactiavteEmployee(int id)
     {
         var result = _service.Deactivate(id);
@@ -62,10 +78,20 @@ public class EmployeesController : ControllerBase
             return BadRequest("Not Found");
         return Ok();
     }
+
+    private int GetCurrentUserId()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userId, out var currentUserId))
+            throw new UnauthorizedException("Invalid token");
+
+        return currentUserId;
+    }
 }
 
 [ApiController]
 [Route("api/skill")]
+[Authorize]
 public class SkillController : ControllerBase
 {
     private readonly ISkillService _skillService;
@@ -74,12 +100,14 @@ public class SkillController : ControllerBase
         _skillService = skillService;
     }
     [HttpGet("Skills")]
+    [Authorize(Roles = "Admin, Manager")]
     public IActionResult GetAllSkills()
     {
         return Ok(_skillService.GetAllSkills());
     }
 
     [HttpPost("SkillsAdd")]
+    [Authorize(Roles = "Admin")]
     public IActionResult CreateSkill(SkillCreateDTO dto)
     {
         var result = _skillService.CreateSkill(dto);
@@ -89,6 +117,7 @@ public class SkillController : ControllerBase
     }
 
     [HttpPost("SkillAssign")]
+    [Authorize(Roles = "Admin")]
     public IActionResult AssignSkill(SkillAssignDTO dto)
     {
         var success = _skillService.AssignSkillToEmployee(dto);

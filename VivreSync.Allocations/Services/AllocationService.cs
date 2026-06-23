@@ -2,6 +2,7 @@ using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Repositories;
 using VivreSync.HR.Repositories;
 using VivreSync.Model.Entities;
+using VivreSync.Model.Enums;
 using VivreSync.Projects.Repositories;
 using VivreSync.Shared.Exceptions;
 namespace VivreSync.Allocations.Services;
@@ -168,7 +169,7 @@ public class AllocationService : IAllocationService
         if (allocation == null)
             throw new BadRequestException("Allocations cannot be loaded");
 
-        var result = employee.Where(e=> e.IsActive).Select(e =>
+        var result = employee.Where(e=> e.IsActive && e.User.Role == UserRoles.Employee && e.User.IsActive).Select(e =>
         {
             var today = DateOnly.FromDateTime(DateTime.Today);
             var active = allocation

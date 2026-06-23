@@ -72,8 +72,8 @@ namespace VivreSync.HR.Services
 
             if (existingUser != null)
                 throw new BadRequestException("Username Already occupied");
-            
-            var isValidRole = Enum.TryParse<UserRoles>(dto.Role, ignoreCase: true, out var parsedRole) || !Enum.IsDefined(typeof(UserRoles), parsedRole);
+
+            var isValidRole = Enum.TryParse<UserRoles>(dto.Role, true, out var parsedRole) && Enum.IsDefined(typeof(UserRoles), parsedRole);
 
             if (!isValidRole)
                 throw new BadRequestException("Invalid Role"); ;
@@ -146,6 +146,10 @@ namespace VivreSync.HR.Services
             _repository.SaveChanges();
 
             return true;
+        }
+        public bool IsEmployeeLinkedToUser(int employeeId, int userId)
+        {
+            return _repository.IsEmployeeLinkedToUser(employeeId, userId);
         }
     }
 }

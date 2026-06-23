@@ -123,6 +123,16 @@ public class ProjectService : IProjectService
 
         string health;
 
+        if(project.Status == ProjectStatus.Completed)
+        {
+            reasons.Add($"{project.Name} is Completed");
+            return new ProjectHealthResponseDTO
+            {
+                ProjectID = project.Id,
+                ProjectName = project.Name,
+                Reasons = reasons
+            };
+        }
         if (delayedMilestones.Any() || overdueMilestones.Any())
         {
             health = "Delayed";

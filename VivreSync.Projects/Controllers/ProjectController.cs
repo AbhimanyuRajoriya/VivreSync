@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VivreSync.Projects.DTOs;
 using VivreSync.Projects.Services;
@@ -6,6 +7,7 @@ namespace VivreSync.Projects.Controllers
 {
     [ApiController]
     [Route("api/projects")]
+    [Authorize]
     public class ProjectsController : ControllerBase
     {
         private readonly IProjectService _projectService;
@@ -16,6 +18,7 @@ namespace VivreSync.Projects.Controllers
         }
 
         [HttpGet("getAll")]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetAll()
         {
             var projects = _projectService.GetAll();
@@ -23,6 +26,7 @@ namespace VivreSync.Projects.Controllers
         }
 
         [HttpGet("ProjectHealth/{id}")]
+        [Authorize(Roles = "Admin, Manager")]
         public IActionResult GetProjectHealth(int id)
         {
             var result = _projectService.GetProjectHealth(id);
@@ -32,6 +36,7 @@ namespace VivreSync.Projects.Controllers
         }
 
         [HttpPost("CreateProject")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create(ProjectCreateDTO dto)
         {
             var project = _projectService.Create(dto);
@@ -43,6 +48,7 @@ namespace VivreSync.Projects.Controllers
         }
 
         [HttpPost("UpdateProject")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Update(ProjectUpdateDTO dto)
         {
             var result = _projectService.Update(dto);
