@@ -62,6 +62,9 @@ public class AllocationService : IAllocationService
         var project = _projectRepository.GetById(dto.ProjectId);
         if (employee == null || project == null)
             throw new BadRequestException("Enter vaid employee and project ID");
+        
+        if(!employee.IsActive)
+            throw new BadRequestException("Employee is not Active Employee");
 
         if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
             throw new BadRequestException("Enter valid Valid Utilizaition Percentage");
@@ -122,6 +125,9 @@ public class AllocationService : IAllocationService
         var project = _projectRepository.GetById(dto.ProjectId);
         if (employee == null || project == null)
             throw new BadRequestException("Enter Valid Employee and Prject ID");
+
+        if(!employee.IsActive)
+            throw new BadRequestException("Given Employee is not Active Employee");
 
         if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
             throw new BadRequestException("Invalid Utilization Percentage");

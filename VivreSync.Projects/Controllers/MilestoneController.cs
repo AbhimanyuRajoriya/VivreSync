@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VivreSync.Projects.DTOs;
 using VivreSync.Projects.Services;
+using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Projects.Controllers;
 [ApiController]
@@ -21,15 +22,19 @@ public class MilestonesController : ControllerBase
     public IActionResult GetAll()
     {
         var milestones = _milestoneService.GetAll();
+        if (milestones == null)
+            throw new BadRequestException("No Milestones Present");
         return Ok(milestones);
     }
 
-    [HttpGet("getById/{id}")]
+    [HttpGet("getById/{Milestoneid}")]
     [Authorize(Roles = "Admin, Manager")]
-    public IActionResult GetById(int id)
+    public IActionResult GetById(int? Milestoneid)
     {
-        var milestone = _milestoneService.GetById(id);
+        if (Milestoneid == null)
+            throw new BadRequestException("Enter the Milestone ID");
 
+        var milestone = _milestoneService.GetById(Milestoneid.Value);
         if (milestone == null)
             return NotFound("Milestone not found");
 
@@ -38,9 +43,11 @@ public class MilestonesController : ControllerBase
 
     [HttpGet("project/{projectId}")]
     [Authorize(Roles = "Admin, Manager")]
-    public IActionResult GetByProjectId(int projectId)
+    public IActionResult GetByProjectId(int? projectId)
     {
-        var milestones = _milestoneService.GetByProjectId(projectId);
+        if (projectId == null) throw new BadRequestException("Enter the Project Id");
+
+        var milestones = _milestoneService.GetByProjectId(projectId.Value);
         if (milestones == null)
             return BadRequest();
         return Ok(milestones);
@@ -50,20 +57,22 @@ public class MilestonesController : ControllerBase
     [Authorize(Roles = "Admin, Manager")]
     public IActionResult Create(MilestoneCreateDTO dto)
     {
-        var milestone = _milestoneService.Create(dto);
+        if (dto == null) throw new BadRequestException("Enter the Required Details");
 
+        var milestone = _milestoneService.Create(dto);
         if (milestone == null)
             return BadRequest("Invalid project id");
 
         return Ok(milestone);
     }
 
-    [HttpPost("UpdateMilestone/{id}")]
+    [HttpPost("UpdateMilestone/{Milestoneid}")]
     [Authorize(Roles = "Admin, Manager")]
-    public IActionResult Update(int id, MilestoneUpdateDTO dto)
+    public IActionResult Update(int? Milestoneid, MilestoneUpdateDTO dto)
     {
-        var result = _milestoneService.Update(id, dto);
+        if (Milestoneid == null || dto == null) throw new BadRequestException("Enter both Id and required Details");
 
+        var result = _milestoneService.Update(Milestoneid.Value, dto);
         if (!result)
             return NotFound("Milestone not found");
 

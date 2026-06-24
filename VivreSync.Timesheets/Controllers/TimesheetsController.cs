@@ -30,28 +30,34 @@ namespace VivreSync.Timesheets.Controllers
             return Ok(timesheets);
         }
 
-        [HttpGet("GetTimeSheetById/{id}")]
+        [HttpGet("GetTimeSheetById/{Timesheetid}")]
         [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetTimesheetById(int id)
+        public IActionResult GetTimesheetById(int? Timesheetid)
         {
-            var timesheet = _service.GetTimesheetById(id);
+            if (Timesheetid == null)
+                throw new BadRequestException("Enter the Timesheet Id");
+
+            var timesheet = _service.GetTimesheetById(Timesheetid.Value);
             if(timesheet == null)
                 return NotFound();
             return Ok(timesheet);
         }
 
-        [HttpGet("GetTimesheetOfEmployeeById/{id}")]
+        [HttpGet("GetTimesheetOfEmployeeById/{Employeeid}")]
         [Authorize(Roles = "Admin, Manager, Employee")]
-        public IActionResult GetTimesheetsofEmployee(int id)
+        public IActionResult GetTimesheetsofEmployee(int? Employeeid)
         {
+            if (Employeeid == null)
+                throw new BadRequestException("Enter Employee Id");
+
             if (User.IsInRole("Employee"))
             {
                 var currentUserId = GetCurrentUserId();
-                var isOwnTimesheet = _employeeService.IsEmployeeLinkedToUser(id, currentUserId);
+                var isOwnTimesheet = _employeeService.IsEmployeeLinkedToUser(Employeeid.Value, currentUserId);
                 if (!isOwnTimesheet)
                     throw new UnauthorizedException("Cannot see Timesheet of other employee");
             }
-            var timesheet = _service.GetByEmployeeId(id);
+            var timesheet = _service.GetByEmployeeId(Employeeid.Value);
             if (timesheet == null)
                 return BadRequest();
             return Ok(timesheet);
@@ -61,6 +67,9 @@ namespace VivreSync.Timesheets.Controllers
         [Authorize(Roles = "Admin,Employee")]
         public IActionResult CreateTimesheets(TimesheetCreateDTO dto)
         {
+            if (dto == null)
+                throw new BadRequestException("Enter the Required Data");
+
             if (User.IsInRole("Employee"))
             {
                 var currentUserId = GetCurrentUserId();
@@ -74,29 +83,36 @@ namespace VivreSync.Timesheets.Controllers
             return Ok("Timesheet Submitted");
         }
 
-        [HttpPost("EditTimesheet/{id}")]
+        [HttpPost("EditTimesheet/{Employeeid}")]
         [Authorize(Roles = "Employee")]
-        public IActionResult UpdateTimesheets(int id,TimesheetUpdateDTO dto)
+        public IActionResult UpdateTimesheets(int? Employeeid,TimesheetUpdateDTO dto)
         {
+            if (Employeeid == null || dto == null)
+                throw new BadRequestException("Enter Both Employee Id and Required Data");
+
             var currentUserId = GetCurrentUserId();
-            var isOwnTimesheet = _service.IsTimesheetLinkedToUser(id, currentUserId);
+            var isOwnTimesheet = _service.IsTimesheetLinkedToUser(Employeeid.Value, currentUserId);
             if (!isOwnTimesheet)
                 throw new UnauthorizedException("Cannot Update Timesheet of other employee");
 
-            var result = _service.UpdateTimesheet(id, dto);
+            var result = _service.UpdateTimesheet(Employeeid.Value, dto);
             if (!result)
                 return BadRequest();
 
             return Ok("Timesheet Updated");
         }
-        [HttpGet("missed")]
+
+        [HttpGet("missed/yyyy-mm-dd")]
         [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetMissedTimesheets([FromQuery] DateOnly weekStartDate)
+        public IActionResult GetMissedTimesheets([FromQuery] DateOnly? weekStartDate)
         {
-            if (weekStartDate.DayOfWeek != DayOfWeek.Monday)
+            if (weekStartDate == null)
+                throw new BadRequestException("Enter the Date");
+
+            if (weekStartDate.Value.DayOfWeek != DayOfWeek.Monday)
                 return BadRequest("Week start date must be Monday");
 
-            var result = _service.GetMissedTimesheets(weekStartDate);
+            var result = _service.GetMissedTimesheets(weekStartDate.Value);
 
             return Ok(result);
         }
@@ -105,7 +121,7 @@ namespace VivreSync.Timesheets.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (!int.TryParse(userId, out var currentUserId))
-                throw new UnauthorizedAccessException("Invalid token");
+                throw new UnauthorizedException("Invalid token");
 
             return currentUserId;
         }

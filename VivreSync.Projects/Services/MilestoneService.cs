@@ -17,6 +17,7 @@ public class MilestoneService : IMilestoneService
 
     public List<MilestoneResponseDTO> GetAll()
     {
+        UpdateOverdueMilestones();
         var milestones = _milestoneRepository.GetAll();
         return milestones.Select(m => new MilestoneResponseDTO
         {
@@ -31,6 +32,7 @@ public class MilestoneService : IMilestoneService
 
     public MilestoneResponseDTO? GetById(int id)
     {
+        UpdateOverdueMilestones();
         var milestone = _milestoneRepository.GetById(id);
         if (milestone == null)
             throw new NotFoundException("Milestone does not exists");
@@ -107,5 +109,21 @@ public class MilestoneService : IMilestoneService
         _milestoneRepository.Update(milestone);
         _milestoneRepository.SaveChanges();
         return true;
+    }
+
+    private void UpdateOverdueMilestones()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var milestones = _milestoneRepository.GetAll();
+
+        foreach (var milestone in milestones)
+        {
+            if (milestone.DueDate < today && milestone.Status != MilestoneStatus.Completed)
+            {
+                milestone.Status = MilestoneStatus.Delayed;
+                _milestoneRepository.Update(milestone);
+            }
+        }
+        _milestoneRepository.SaveChanges();
     }
 }

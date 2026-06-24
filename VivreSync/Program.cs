@@ -1,23 +1,24 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
-
-using VivreSync.Shared.Exceptions;
+using VivreSync.Allocations.Repositories;
+using VivreSync.Allocations.Services;
 using VivreSync.Authentication.Repositories;
 using VivreSync.Authentication.Security;
 using VivreSync.Authentication.Services;
-using VivreSync.Model.Entities;
-using VivreSync.Structure.Data;
 using VivreSync.HR.Repositories;
 using VivreSync.HR.Services;
-using VivreSync.Projects.Services;
+using VivreSync.Model.Entities;
 using VivreSync.Projects.Repositories;
-using VivreSync.Allocations.Repositories;
-using VivreSync.Allocations.Services;
+using VivreSync.Projects.Services;
+using VivreSync.Shared.Exceptions;
+using VivreSync.Structure.Data;
 using VivreSync.Timesheets.Repositories;
 using VivreSync.Timesheets.Services;
 var builder = WebApplication.CreateBuilder(args);
@@ -79,6 +80,56 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
         )
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = "Login Required"
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        },
+
+        OnForbidden = async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                message = "Access denied. You do not have permission to access it"
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
+    };
+});
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(x => x.Value?.Errors.Count > 0)
+            .SelectMany(x => x.Value!.Errors)
+            .Select(x => string.IsNullOrWhiteSpace(x.ErrorMessage)
+                ? "Invalid request data"
+                : x.ErrorMessage)
+            .ToList();
+
+        return new BadRequestObjectResult(new
+        {
+            errors = errors
+        });
     };
 });
 

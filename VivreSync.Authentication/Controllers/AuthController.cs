@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VivreSync.Authentication.DTOs;
 using VivreSync.Authentication.Services;
+using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Authentication.Controllers;
 
@@ -20,8 +21,9 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public IActionResult Login(LoginDTO dto)
     {
-        var result = _authService.Login(dto);
+        if(dto == null) throw new BadRequestException("Enter the Details");
 
+        var result = _authService.Login(dto);
         if (result == null)
             return BadRequest("Invalid username or password");
 
@@ -32,8 +34,9 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public IActionResult ChangePassword(ChangePasswordDTO dto)
     {
-        var result = _authService.ChangePassword(dto);
+        if (dto == null) throw new BadRequestException("Enter the Details");
 
+        var result = _authService.ChangePassword(dto);
         if (!result)
             return BadRequest("Invalid username or old password");
 

@@ -65,21 +65,26 @@ namespace VivreSync.HR.Services
                 }).ToList()
             };
         }
-        public Employee? Create(EmployeeCreateDTO dto)
+        public EmployeeResponseDTO Create(EmployeeCreateDTO dto)
         {
             var username = dto.UserName.Trim().ToLower();
+
             var existingUser = _userRepository.GetUser(username);
 
             if (existingUser != null)
-                throw new BadRequestException("Username Already occupied");
+                throw new BadRequestException("Username already occupied");
 
-            var isValidRole = Enum.TryParse<UserRoles>(dto.Role, true, out var parsedRole) && Enum.IsDefined(typeof(UserRoles), parsedRole);
+            var isValidRole = Enum.TryParse<UserRoles>(
+                dto.Role,
+                true,
+                out var parsedRole
+            ) && Enum.IsDefined(typeof(UserRoles), parsedRole);
 
             if (!isValidRole)
-                throw new BadRequestException("Invalid Role"); ;
+                throw new BadRequestException("Invalid role");
 
             if (parsedRole == UserRoles.Admin)
-                throw new BadRequestException("Cannot Grant Admin Role"); ;
+                throw new BadRequestException("Cannot grant Admin role");
 
             var user = new Users
             {
@@ -97,9 +102,9 @@ namespace VivreSync.HR.Services
 
             var employee = new Employee
             {
-                FullName = dto.Name,
-                Email = dto.Email,
-                Designation = dto.Designation,
+                FullName = dto.Name.Trim(),
+                Email = dto.Email.Trim().ToLower(),
+                Designation = dto.Designation.Trim(),
                 IsActive = true,
                 UserId = user.Id
             };
@@ -107,17 +112,25 @@ namespace VivreSync.HR.Services
             _repository.Add(employee);
             _repository.SaveChanges();
 
-            return employee;
+            return new EmployeeResponseDTO
+            {
+                Id = employee.Id,
+                FullName = employee.FullName,
+                Email = employee.Email,
+                Designation = employee.Designation,
+                IsActive = employee.IsActive,
+                Skills = new List<EmployeeSkillResponseDTO>()
+            };
         }
-        public Employee? Update(EmployeeUpdateDTO dto)
+        public EmployeeResponseDTO Update(EmployeeUpdateDTO dto)
         {
             var employee = _repository.GetById(dto.EmployeeId);
 
             if (employee == null)
-                throw new NotFoundException("Employee does not exists");
+                throw new NotFoundException("Employee does not exist");
 
-            employee.FullName = dto.FullName;
-            employee.Designation = dto.Designation;
+            employee.FullName = dto.FullName.Trim();
+            employee.Designation = dto.Designation.Trim();
             employee.IsActive = dto.IsActive;
 
             if (employee.User != null)
@@ -128,13 +141,15 @@ namespace VivreSync.HR.Services
             _repository.Update(employee);
             _repository.SaveChanges();
 
-            return employee;
+            return MapToResponse(employee);
         }
         public bool Deactivate(int id)
         {
             var employee = _repository.GetById(id);
             if (employee == null)
                 throw new NotFoundException("Employee does not exists");
+            if (!employee.IsActive)
+                throw new BadRequestException("Employee is Deactivated Already");
 
             employee.IsActive = false;
             if (employee.User != null)
@@ -150,6 +165,26 @@ namespace VivreSync.HR.Services
         public bool IsEmployeeLinkedToUser(int employeeId, int userId)
         {
             return _repository.IsEmployeeLinkedToUser(employeeId, userId);
+        }
+
+        private EmployeeResponseDTO MapToResponse(Employee employee)
+        {
+            return new EmployeeResponseDTO
+            {
+                Id = employee.Id,
+                FullName = employee.FullName,
+                Email = employee.Email,
+                Designation = employee.Designation,
+                IsActive = employee.IsActive,
+                Skills = employee.EmployeeSkills?
+                    .Select(es => new EmployeeSkillResponseDTO
+                    {
+                        SkillId = es.SkillId,
+                        SkillName = es.Skill.Name,
+                        Level = es.Level.ToString()
+                    })
+                    .ToList() ?? new List<EmployeeSkillResponseDTO>()
+            };
         }
     }
 }

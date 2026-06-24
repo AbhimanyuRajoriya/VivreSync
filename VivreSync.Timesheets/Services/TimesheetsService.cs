@@ -134,6 +134,8 @@ namespace VivreSync.Timesheets.Services
         public List<TimesheetResponseDTO> GetByEmployeeId(int id)
         {
             var timesheet = _repository.GetByEmployeeId(id);
+            if (timesheet == null)
+                throw new NotFoundException("Timesheet does not exist");
             return timesheet.Select(TimesheetMap).ToList();
         }
 

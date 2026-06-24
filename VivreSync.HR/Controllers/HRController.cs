@@ -23,22 +23,26 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin, Manager")]
     public IActionResult GetAll()
     {
+        var employees = _service.GetAll();
+        if (employees == null) throw new BadRequestException("No Employees");
         return Ok(_service.GetAll());
     }
 
-    [HttpGet("employees/{id}")]
+    [HttpGet("employees/{Employeeid}")]
     [Authorize(Roles = "Admin,Manager,Employee")]
-    public IActionResult GetEmployeeById(int id)
+    public IActionResult GetEmployeeById(int? Employeeid)
     {
+        if (Employeeid == null) throw new BadRequestException("Enter the Employee ID");
+
         if (User.IsInRole("Employee"))
         {
             var currentUserId = GetCurrentUserId();
-            var isOwnProfile = _service.IsEmployeeLinkedToUser(id, currentUserId);
+            var isOwnProfile = _service.IsEmployeeLinkedToUser(Employeeid.Value, currentUserId);
             if (!isOwnProfile)
                 throw new UnauthorizedException("Cannot access this data");
         }
 
-        var employee = _service.GetById(id);
+        var employee = _service.GetById(Employeeid.Value);
         if (employee == null)
             return NotFound("Employee not found");
 
@@ -49,8 +53,9 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult CreateEmployee(EmployeeCreateDTO dto)
     {
-        var employee = _service.Create(dto);
+        if (dto == null) throw new BadRequestException("Enter the Required Details");
 
+        var employee = _service.Create(dto);
         if (employee == null)
             return BadRequest("Enter Valid Request");
 
@@ -61,22 +66,26 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult UpdateEmployee(EmployeeUpdateDTO dto)
     {
-        var result = _service.Update(dto);
+        if (dto == null) throw new BadRequestException("Enter the Required Details");
 
+        var result = _service.Update(dto);
         if (result == null)
             return NotFound("Employee not found");
 
         return Ok("Employee updated successfully");
     }
 
-    [HttpPost("EmployeeDeactivate/{id}")]
+    [HttpPost("EmployeeDeactivate/{Employeeid}")]
     [Authorize(Roles = "Admin")]
-    public IActionResult DeactiavteEmployee(int id)
+    public IActionResult DeactiavteEmployee(int? Employeeid)
     {
-        var result = _service.Deactivate(id);
+        if (Employeeid == null)
+            throw new BadRequestException("Enter the Employee ID");
+
+        var result = _service.Deactivate(Employeeid.Value);
         if (!result)
             return BadRequest("Not Found");
-        return Ok();
+        return Ok("Employee Deactivated");
     }
 
     private int GetCurrentUserId()
@@ -103,6 +112,9 @@ public class SkillController : ControllerBase
     [Authorize(Roles = "Admin, Manager")]
     public IActionResult GetAllSkills()
     {
+        var result = _skillService.GetAllSkills();
+        if (result == null)
+            throw new BadRequestException("No Skill Present");
         return Ok(_skillService.GetAllSkills());
     }
 
@@ -110,6 +122,8 @@ public class SkillController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult CreateSkill(SkillCreateDTO dto)
     {
+        if (dto == null) throw new BadRequestException("Enter the Required Details");
+
         var result = _skillService.CreateSkill(dto);
         if(result == null)
             return BadRequest("Invalid Request");
@@ -120,6 +134,8 @@ public class SkillController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult AssignSkill(SkillAssignDTO dto)
     {
+        if (dto == null) throw new BadRequestException("Enter the Required Details");
+
         var success = _skillService.AssignSkillToEmployee(dto);
         if (!success)
             return BadRequest("Invalid Request");

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Services;
+using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Allocations.Controllers
 {
@@ -22,15 +23,18 @@ namespace VivreSync.Allocations.Controllers
         public IActionResult GetAll()
         {
             var allocations = _allocationService.GetAll();
+            if (allocations == null)
+                throw new BadRequestException("No Allocations");
             return Ok(allocations);
         }
 
-        [HttpGet("GetById/{id}")]
+        [HttpGet("GetById/{Allocationid}")]
         [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetById(int id)
+        public IActionResult GetById(int? Allocationid)
         {
-            var allocation = _allocationService.GetById(id);
+            if (Allocationid == null) throw new BadRequestException("Enter The Allocation ID");
 
+            var allocation = _allocationService.GetById(Allocationid.Value);
             if (allocation == null)
                 return NotFound("Allocation not found");
 
@@ -41,29 +45,32 @@ namespace VivreSync.Allocations.Controllers
         [Authorize(Roles = "Admin, Manager")]
         public IActionResult Create(AllocationCreateDTO dto)
         {
-            var allocation = _allocationService.Create(dto);
+            if (dto == null) throw new BadRequestException("Enter the reqiured Data");
 
+            var allocation = _allocationService.Create(dto);
             if (allocation == null)
                 return BadRequest("Invalid allocation");
 
             return Ok(allocation);
         }
 
-        [HttpPost("Update/{id}")]
+        [HttpPost("Update/{Allocationid}")]
         [Authorize(Roles = "Admin, Manager")]
-        public IActionResult Update(int id, AllocationUpdateDTO dto)
+        public IActionResult Update(int? Allocationid, AllocationUpdateDTO dto)
         {
-            var success = _allocationService.Update(id, dto);
+            if (Allocationid == null || dto == null)
+                throw new BadRequestException("Enter both Allocation Id and reqiured Data");
 
+            var success = _allocationService.Update(Allocationid.Value, dto);
             if (!success)
                 return BadRequest("Invalid allocation");
 
-            return Ok();
+            return Ok("Allocation Updated");
         }
 
         [HttpGet("GetAllEmployees")]
         [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetAllEmplyee()
+        public IActionResult GetAllEmployees()
         {
             var employees = _allocationService.GetEmployeeTable();
             return Ok(employees);
@@ -85,12 +92,13 @@ namespace VivreSync.Allocations.Controllers
             return Ok(employees);
         }
 
-        [HttpDelete("Delete/{id}")]
+        [HttpDelete("Delete/{Allocationid}")]
         [Authorize(Roles = "Admin, Manager")]
-        public IActionResult Delete(int id)
+        public IActionResult Delete(int? Allocationid)
         {
-            var success = _allocationService.Delete(id);
+            if (Allocationid == null) throw new BadRequestException("Enter the Allocation ID");
 
+            var success = _allocationService.Delete(Allocationid.Value);
             if (!success)
                 return NotFound("Allocation not found");
 

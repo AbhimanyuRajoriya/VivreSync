@@ -69,6 +69,14 @@ namespace VivreSync.Authentication.Services
             if (!isPasswordValid)
                 throw new BadRequestException("Invalid Password");
 
+            bool isNewPasswordSameAsOld = _passwordHasherService.VerifyPassword(
+                dto.NewPassword,
+                user.PasswordHash
+            );
+
+            if (isNewPasswordSameAsOld)
+                throw new BadRequestException("New password cannot be same as old password");
+
             user.PasswordHash = _passwordHasherService.HashPassword(dto.NewPassword);
             user.PasswordChangeRequired = false;
 
