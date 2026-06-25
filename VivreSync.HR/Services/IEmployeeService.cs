@@ -8,7 +8,9 @@ namespace VivreSync.HR.Services
         EmployeeResponseDTO? GetById(int id);
         EmployeeResponseDTO? Create(EmployeeCreateDTO dto);
         EmployeeResponseDTO? Update(EmployeeUpdateDTO dto);
-        bool Deactivate(int id);
+        bool Deactivate(int? id);
+        EmployeeResponseDTO ActivateEmployee(int? id);
+        List<EmployeeResponseDTO> GetInactiveEmployees();
         bool IsEmployeeLinkedToUser(int employeeId, int userId);
     }
 }

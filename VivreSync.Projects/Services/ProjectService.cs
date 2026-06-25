@@ -50,16 +50,21 @@ public class ProjectService : IProjectService
         var manager = _employeeRepository.GetById(dto.ManagerId);
 
         if (manager == null || !manager.IsActive)
-            throw new BadRequestException("Manager must be an active employee");
+            throw new BadRequestException("Manager must Exist and be an active employee");
 
         if (manager.User == null || manager.User.Role != UserRoles.Manager)
             throw new BadRequestException("Employee must have Manager role");
+
+        var isValidStatus = Enum.TryParse<ProjectStatus>(dto.Status, true, out var parsedStatus ) && Enum.IsDefined(typeof(ProjectStatus), parsedStatus);
+
+        if (!isValidStatus)
+            throw new BadRequestException("Invalid project status");
 
         var project = new Project
         {
             Name = dto.Name,
             Client = dto.Client,
-            Status = dto.Status,
+            Status = parsedStatus,
             ManagerId = dto.ManagerId
         };
 
@@ -89,9 +94,17 @@ public class ProjectService : IProjectService
         if (manager.User == null || manager.User.Role != UserRoles.Manager)
             throw new BadRequestException("Employee must have Manager role");
 
+        var isValidStatus = Enum.TryParse<ProjectStatus>(dto.Status, true, out var parsedStatus) && Enum.IsDefined(typeof(ProjectStatus), parsedStatus);
+
+        if (!isValidStatus)
+            throw new BadRequestException("Invalid project status");
+
+        if (!isValidStatus)
+            throw new BadRequestException("Invalid project status");
+
         project.Name = dto.Name;
         project.Client = dto.Client;
-        project.Status = dto.Status;
+        project.Status = parsedStatus;
         project.ManagerId = dto.ManagerId;
 
         _projectRepository.Update(project);
@@ -133,6 +146,17 @@ public class ProjectService : IProjectService
                 Reasons = reasons
             };
         }
+        if (project.Status == ProjectStatus.OnHold)
+        {
+            reasons.Add($"{project.Name} is Cuurently On Hold");
+            return new ProjectHealthResponseDTO
+            {
+                ProjectID = project.Id,
+                ProjectName = project.Name,
+                Reasons = reasons
+            };
+        }
+
         if (delayedMilestones.Any() || overdueMilestones.Any())
         {
             health = "Delayed";

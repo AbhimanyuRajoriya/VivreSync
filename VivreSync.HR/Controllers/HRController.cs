@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VivreSync.HR.DTOs;
 using VivreSync.HR.Services;
+using VivreSync.Model.Entities;
 using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.HR.Controllers;
@@ -82,10 +83,33 @@ public class EmployeesController : ControllerBase
         if (Employeeid == null)
             throw new BadRequestException("Enter the Employee ID");
 
-        var result = _service.Deactivate(Employeeid.Value);
+        var result = _service.Deactivate(Employeeid);
         if (!result)
             return BadRequest("Not Found");
         return Ok("Employee Deactivated");
+    }
+
+    [HttpGet("Inactive_Employee")]
+    [Authorize(Roles = "Admin")]
+    public IActionResult GetInactiveEmployees()
+    {
+        var result = _service.GetInactiveEmployees();
+        if (result == null)
+            return BadRequest("Not Found");
+        return Ok(result);
+    }
+
+    [HttpPatch("activate/{Employeeid}")]
+    [Authorize(Roles = "Admin")]
+    public IActionResult ActivateEmployee(int? Employeeid)
+    {
+        if (Employeeid == null)
+            throw new BadRequestException("Enter the Employee ID");
+
+        var result = _service.ActivateEmployee(Employeeid);
+        if (result == null)
+            return BadRequest("Not Found");
+        return Ok(result);
     }
 
     private int GetCurrentUserId()

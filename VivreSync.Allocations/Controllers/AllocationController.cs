@@ -102,7 +102,7 @@ namespace VivreSync.Allocations.Controllers
             if (!success)
                 return NotFound("Allocation not found");
 
-            return Ok();
+            return Ok("Allocation Removed");
         }
     }
 }

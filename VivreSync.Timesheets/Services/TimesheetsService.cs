@@ -92,7 +92,7 @@ namespace VivreSync.Timesheets.Services
 
             return TimesheetMap(savedTimesheet);
         }
-        public bool UpdateTimesheet(int id,TimesheetUpdateDTO dto)
+        public bool UpdateTimesheet(int id, TimesheetUpdateDTO dto)
         {
             var timesheet = _repository.GetById(id);
 
@@ -103,19 +103,37 @@ namespace VivreSync.Timesheets.Services
                 throw new BadRequestException("Invalid date");
 
             if (!IsMonday(dto.WeekStartDate))
-                throw new BadRequestException("Invalid week start date");
+                throw new BadRequestException("Week start date must be Monday");
 
-            if (!AreHoursValid(dto.MondayHours,dto.TuesdayHours,dto.WednesdayHours,
-                dto.ThursdayHours,dto.FridayHours,dto.SaturdayHours,dto.SundayHours))
+            if (!AreHoursValid(dto.MondayHours, dto.TuesdayHours, dto.WednesdayHours, dto.ThursdayHours, dto.FridayHours, dto.SaturdayHours, dto.SundayHours))
                 throw new BadRequestException("Invalid weekly hours");
 
             if (string.IsNullOrWhiteSpace(dto.ActivityTag))
-                throw new BadRequestException("Invalid Activity Tag");
+                throw new BadRequestException("Activity tag is required");
 
-            var isvalidactivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags)
-                               && Enum.IsDefined(typeof(ActivityTags), activityTags);
-            if (!isvalidactivity)
-                throw new BadRequestException("Enter Valid Activity Tag");
+            var isValidActivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags) && Enum.IsDefined(typeof(ActivityTags), activityTags);
+            if (!isValidActivity)
+                throw new BadRequestException("Enter valid activity tag");
+
+            var weekEndDate = dto.WeekStartDate.AddDays(6);
+
+            var isAllocated = _repository.IsEmployeeAllocatedToProject(
+                timesheet.EmployeeId,
+                timesheet.ProjectId,
+                dto.WeekStartDate,
+                weekEndDate);
+
+            if (!isAllocated)
+                throw new BadRequestException("Employee is not allocated to this project for this week");
+
+            var alreadySubmitted = _repository.ExistsForWeekExceptCurrent(
+                id,
+                timesheet.EmployeeId,
+                timesheet.ProjectId,
+                dto.WeekStartDate);
+
+            if (alreadySubmitted)
+                throw new BadRequestException("Timesheet already submitted for this employee, project, and week");
 
             timesheet.WeekStartDate = dto.WeekStartDate;
             timesheet.MondayHours = dto.MondayHours;

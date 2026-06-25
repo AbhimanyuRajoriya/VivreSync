@@ -67,5 +67,14 @@ namespace VivreSync.Timesheets.Repositories
                 .Include(a => a.Project)
                 .Where(a => a.StartDate <= weekEndDate && a.EndDate >= weekStartDate).ToList();
         }
+
+        public bool ExistsForWeekExceptCurrent(int timesheetId, int employeeId, int projectId, DateOnly weekStartDate)
+        {
+            return _Context.Timesheets.Any(t =>
+                t.Id != timesheetId &&
+                t.EmployeeId == employeeId &&
+                t.ProjectId == projectId &&
+                t.WeekStartDate == weekStartDate);
+        }
     }
 }

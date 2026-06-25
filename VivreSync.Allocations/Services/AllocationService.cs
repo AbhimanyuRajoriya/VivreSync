@@ -124,7 +124,7 @@ public class AllocationService : IAllocationService
         var employee = _employeeRepository.GetById(dto.EmployeeId);
         var project = _projectRepository.GetById(dto.ProjectId);
         if (employee == null || project == null)
-            throw new BadRequestException("Enter Valid Employee and Prject ID");
+            throw new BadRequestException("Enter Valid Employee and Project ID");
 
         if(!employee.IsActive)
             throw new BadRequestException("Given Employee is not Active Employee");

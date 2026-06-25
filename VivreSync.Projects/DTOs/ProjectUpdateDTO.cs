@@ -16,7 +16,7 @@ namespace VivreSync.Projects.DTOs
         [Required]
         [StringLength(100)]
         public string Client { get; set; } = string.Empty;
-        public ProjectStatus Status { get; set; }
+        public string Status { get; set; } = string.Empty;
 
         [Range(1, 1000, ErrorMessage = "Invalid ManagerId")]
         [Required]

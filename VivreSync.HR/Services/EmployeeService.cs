@@ -124,28 +124,26 @@ namespace VivreSync.HR.Services
         }
         public EmployeeResponseDTO Update(EmployeeUpdateDTO dto)
         {
-            var employee = _repository.GetById(dto.EmployeeId);
+            if(dto == null) 
+                throw new BadRequestException("Enter the Data required data");
 
+            var employee = _repository.GetById(dto.EmployeeId);
             if (employee == null)
                 throw new NotFoundException("Employee does not exist");
 
             employee.FullName = dto.FullName.Trim();
             employee.Designation = dto.Designation.Trim();
-            employee.IsActive = dto.IsActive;
-
-            if (employee.User != null)
-            {
-                employee.User.IsActive = dto.IsActive;
-            }
 
             _repository.Update(employee);
             _repository.SaveChanges();
 
             return MapToResponse(employee);
         }
-        public bool Deactivate(int id)
+        public bool Deactivate(int? id)
         {
-            var employee = _repository.GetById(id);
+            if (id == null) throw new BadRequestException("Enter the required data");
+
+            var employee = _repository.GetById(id.Value);
             if (employee == null)
                 throw new NotFoundException("Employee does not exists");
             if (!employee.IsActive)
@@ -185,6 +183,37 @@ namespace VivreSync.HR.Services
                     })
                     .ToList() ?? new List<EmployeeSkillResponseDTO>()
             };
+        }
+
+        public List<EmployeeResponseDTO> GetInactiveEmployees()
+        {
+            var employees = _repository.GetInactiveEmployees();
+
+            return employees
+                .Select(MapToResponse)
+                .ToList();
+        }
+
+        public EmployeeResponseDTO ActivateEmployee(int? id)
+        {
+            if (id == null) throw new BadRequestException("Enter th required Detail");
+
+            var employee = _repository.GetById(id.Value);
+            if (employee == null)
+                throw new NotFoundException("Employee does not exist");
+
+            if (employee.IsActive)
+                throw new BadRequestException("Employee is already active");
+
+            employee.IsActive = true;
+
+            if (employee.User != null)
+                employee.User.IsActive = true;
+
+            _repository.Update(employee);
+            _repository.SaveChanges();
+
+            return MapToResponse(employee);
         }
     }
 }

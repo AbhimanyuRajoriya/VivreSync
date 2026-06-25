@@ -8,8 +8,10 @@ namespace VivreSync.HR.DTOs
         [Required(ErrorMessage ="Employee Id is required")]
         public int EmployeeId { get; set; }
         [Required]
+        [StringLength(100)]
         public string FullName { get; set; } = string.Empty;
+        [Required]
+        [StringLength(100)]
         public string Designation { get; set; } = string.Empty;
-        public bool IsActive { get; set; } = false;
     }
 }

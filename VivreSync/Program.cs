@@ -118,17 +118,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
-        var errors = context.ModelState
-            .Where(x => x.Value?.Errors.Count > 0)
-            .SelectMany(x => x.Value!.Errors)
-            .Select(x => string.IsNullOrWhiteSpace(x.ErrorMessage)
-                ? "Invalid request data"
-                : x.ErrorMessage)
-            .ToList();
-
         return new BadRequestObjectResult(new
         {
-            errors = errors
+            message = "Invalid request data. Please check the request body and field types."
         });
     };
 });

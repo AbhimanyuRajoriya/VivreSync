@@ -48,5 +48,15 @@ namespace VivreSync.HR.Repositories
                 e.UserId == userId &&
                 e.IsActive);
         }
+
+        public List<Employee> GetInactiveEmployees()
+        {
+            return _context.Employees
+                .Include(e => e.User)
+                .Include(e => e.EmployeeSkills)
+                .ThenInclude(es => es.Skill)
+                .Where(e => !e.IsActive || !e.User.IsActive)
+                .ToList();
+        }
     }
 }

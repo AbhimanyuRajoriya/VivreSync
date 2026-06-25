@@ -83,19 +83,19 @@ namespace VivreSync.Timesheets.Controllers
             return Ok("Timesheet Submitted");
         }
 
-        [HttpPost("EditTimesheet/{Employeeid}")]
+        [HttpPost("EditTimesheet/{id}")]
         [Authorize(Roles = "Employee")]
-        public IActionResult UpdateTimesheets(int? Employeeid,TimesheetUpdateDTO dto)
+        public IActionResult UpdateTimesheets(int? id,TimesheetUpdateDTO dto)
         {
-            if (Employeeid == null || dto == null)
+            if (id == null || dto == null)
                 throw new BadRequestException("Enter Both Employee Id and Required Data");
 
             var currentUserId = GetCurrentUserId();
-            var isOwnTimesheet = _service.IsTimesheetLinkedToUser(Employeeid.Value, currentUserId);
+            var isOwnTimesheet = _service.IsTimesheetLinkedToUser(id.Value, currentUserId);
             if (!isOwnTimesheet)
                 throw new UnauthorizedException("Cannot Update Timesheet of other employee");
 
-            var result = _service.UpdateTimesheet(Employeeid.Value, dto);
+            var result = _service.UpdateTimesheet(id.Value, dto);
             if (!result)
                 return BadRequest();
 

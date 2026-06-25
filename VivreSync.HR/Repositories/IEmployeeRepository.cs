@@ -10,5 +10,6 @@ namespace VivreSync.HR.Repositories
         void Update(Employee employee);
         void SaveChanges();
         bool IsEmployeeLinkedToUser(int employeeId, int userId);
+        List<Employee> GetInactiveEmployees();
     }
 }
