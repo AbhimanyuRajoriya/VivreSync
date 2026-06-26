@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Services;
 using VivreSync.Shared.Exceptions;
@@ -47,6 +48,14 @@ namespace VivreSync.Allocations.Controllers
         {
             if (dto == null) throw new BadRequestException("Enter the reqiured Data");
 
+            if (User.IsInRole("Manager"))
+            {
+                var currentUserId = GetCurrentUserId();
+                var canAccessProject = _allocationService.CanManagerAccessProject(currentUserId, dto.ProjectId);
+                if (!canAccessProject)
+                    throw new BadRequestException("Cannot create allocation for this project");
+            }
+
             var allocation = _allocationService.Create(dto);
             if (allocation == null)
                 return BadRequest("Invalid allocation");
@@ -60,6 +69,20 @@ namespace VivreSync.Allocations.Controllers
         {
             if (Allocationid == null || dto == null)
                 throw new BadRequestException("Enter both Allocation Id and reqiured Data");
+
+            if (User.IsInRole("Manager"))
+            {
+                var currentUserId = GetCurrentUserId();
+
+                var canAccessExistingAllocation = _allocationService.CanManagerAccessAllocation(currentUserId, Allocationid.Value);
+                if (!canAccessExistingAllocation)
+                    throw new BadRequestException("Cannot access requested allocation");
+
+                var canAccessNewProject = _allocationService.CanManagerAccessProject(currentUserId,dto.ProjectId);
+
+                if (!canAccessNewProject)
+                    throw new BadRequestException("Cannot access this project");
+            }
 
             var success = _allocationService.Update(Allocationid.Value, dto);
             if (!success)
@@ -103,6 +126,14 @@ namespace VivreSync.Allocations.Controllers
                 return NotFound("Allocation not found");
 
             return Ok("Allocation Removed");
+        }
+        private int GetCurrentUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out var currentUserId))
+                throw new UnauthorizedException("Invalid token");
+
+            return currentUserId;
         }
     }
 }

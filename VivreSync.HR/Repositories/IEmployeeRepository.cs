@@ -6,6 +6,7 @@ namespace VivreSync.HR.Repositories
     {
         List<Employee> GetAll();
         Employee? GetById(int id);
+        Employee? GetByUserId(int userId);
         void Add(Employee employee);
         void Update(Employee employee);
         void SaveChanges();

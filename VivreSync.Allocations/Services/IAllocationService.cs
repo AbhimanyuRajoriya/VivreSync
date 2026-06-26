@@ -9,6 +9,8 @@ public interface IAllocationService
     List<EmployeeAllocationDTO>? GetEmployeeTable();
     List<EmployeeAllocationDTO>? GetFreeEmployee();
     List<EmployeeAllocationDTO>? GetOccupiedEmployee();
+    bool CanManagerAccessProject(int userId, int projectId);
+    bool CanManagerAccessAllocation(int userId, int allocationId);
     bool Delete(int id);
     bool Update(int id, AllocationUpdateDTO dto);
 }
