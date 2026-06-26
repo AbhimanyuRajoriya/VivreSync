@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Services;
+using VivreSync.Model.Entities;
 using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Allocations.Controllers
@@ -120,6 +121,15 @@ namespace VivreSync.Allocations.Controllers
         public IActionResult Delete(int? Allocationid)
         {
             if (Allocationid == null) throw new BadRequestException("Enter the Allocation ID");
+
+            if (User.IsInRole("Manager"))
+            {
+                var currentUserId = GetCurrentUserId();
+
+                var canAccessExistingAllocation = _allocationService.CanManagerAccessAllocation(currentUserId, Allocationid.Value);
+                if (!canAccessExistingAllocation)
+                    return Forbid();
+            }
 
             var success = _allocationService.Delete(Allocationid.Value);
             if (!success)

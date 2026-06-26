@@ -105,6 +105,10 @@ namespace VivreSync.Timesheets.Services
             if (!IsMonday(dto.WeekStartDate))
                 throw new BadRequestException("Week start date must be Monday");
 
+            var currentWeekStartDate = GetCurrentWeekStartDate();
+            if (timesheet.WeekStartDate < currentWeekStartDate)
+                throw new BadRequestException("Previous week's submitted timesheet cannot be updated");
+
             if (!AreHoursValid(dto.MondayHours, dto.TuesdayHours, dto.WednesdayHours, dto.ThursdayHours, dto.FridayHours, dto.SaturdayHours, dto.SundayHours))
                 throw new BadRequestException("Invalid weekly hours");
 
@@ -189,6 +193,16 @@ namespace VivreSync.Timesheets.Services
             return missedTimesheets;
         }
 
+        public bool IsTimesheetLinkedToUser(int timesheetId, int userId)
+        {
+            var timesheet = _repository.GetById(timesheetId);
+
+            if (timesheet == null)
+                throw new NotFoundException("Timesheet does not exist");
+
+            return timesheet.Employee.UserId == userId && timesheet.Employee.IsActive;
+        }
+
         private TimesheetResponseDTO TimesheetMap(Timesheet timesheet)
         {
             var totalHours = GetTotalHours(timesheet.MondayHours, timesheet.TuesdayHours, timesheet.WednesdayHours,
@@ -212,7 +226,6 @@ namespace VivreSync.Timesheets.Services
         {
             return weekStartDate.DayOfWeek == DayOfWeek.Monday;
         }
-
         private bool AreHoursValid
         (int mondayHours, int tuesdayHours,
         int wednesdayHours, int thursdayHours, int fridayHours, int saturdayHours, int sundayHours)
@@ -257,15 +270,12 @@ namespace VivreSync.Timesheets.Services
             return date >= minDate && date <= maxDate;
         }
 
-        public bool IsTimesheetLinkedToUser(int timesheetId, int userId)
+        private DateOnly GetCurrentWeekStartDate()
         {
-            var timesheet = _repository.GetById(timesheetId);
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var daysSinceMonday = ((int)today.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
 
-            if (timesheet == null)
-                throw new NotFoundException("Timesheet does not exist");
-
-            return timesheet.Employee.UserId == userId && timesheet.Employee.IsActive;
+            return today.AddDays(-daysSinceMonday);
         }
-
     }
 }

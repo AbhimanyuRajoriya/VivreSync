@@ -56,33 +56,36 @@ public class AllocationService : IAllocationService
         };
     }
 
-    public AllocationResponseDTO? Create(AllocationCreateDTO dto)
+    public AllocationResponseDTO Create(AllocationCreateDTO dto)
     {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (dto.StartDate < today)
+            throw new BadRequestException("Allocation start date cannot be before today");
+
+        if (dto.StartDate > dto.EndDate)
+            throw new BadRequestException("Enter valid date range");
+
+        if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
+            throw new BadRequestException("Enter valid utilization percentage");
+
         var employee = _employeeRepository.GetById(dto.EmployeeId);
         var project = _projectRepository.GetById(dto.ProjectId);
         if (employee == null || project == null)
-            throw new BadRequestException("Enter vaid employee and project ID");
+            throw new BadRequestException("Enter valid employee and project ID");
 
         if (!employee.IsActive || employee.User == null || !employee.User.IsActive)
             throw new BadRequestException("Employee is not active");
 
         if (project.Status == ProjectStatus.Completed)
-            throw new BadRequestException("Project is Completed");
+            throw new BadRequestException("Project is completed");
 
         if (project.Status == ProjectStatus.OnHold)
-            throw new BadRequestException("Project is Cuurently On hold");
+            throw new BadRequestException("Project is currently on hold");
 
-        if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
-            throw new BadRequestException("Enter valid Valid Utilizaition Percentage");
-
-        if (dto.StartDate > dto.EndDate)
-            throw new BadRequestException("Enter valid Date Range");
-
-        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations( dto.EmployeeId, dto.StartDate,dto.EndDate);
-
-        var currentAllocation = overlappingAllocations.Sum(a => a.UtilizationPercentage);
-        if (currentAllocation + dto.UtilizationPercentage > 100)
-            throw new BadRequestException("Cannot Allocate current Utilization");
+        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(dto.EmployeeId, dto.StartDate,dto.EndDate);
+        var canAllocate = CanAllocate(overlappingAllocations, dto.StartDate, dto.EndDate, dto.UtilizationPercentage);
+        if (!canAllocate)
+            throw new BadRequestException("Employee cannot be allocated more than 100% on overlapping dates");
 
         var allocation = new Allocation
         {
@@ -129,14 +132,17 @@ public class AllocationService : IAllocationService
 
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        if (allocation.EndDate < today)
-            throw new BadRequestException("Completed allocation cannot be updated");
+        if (allocation.StartDate < today)
+            throw new BadRequestException("Past allocation cannot be updated");
 
-        if (dto.EndDate < today)
-            throw new BadRequestException("Allocation end date cannot be before today");
+        if (dto.StartDate < today)
+            throw new BadRequestException("Allocation start date cannot be before today");
 
         if (dto.StartDate > dto.EndDate)
             throw new BadRequestException("Invalid date range");
+
+        if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
+            throw new BadRequestException("Invalid utilization percentage");
 
         var employee = _employeeRepository.GetById(dto.EmployeeId);
         var project = _projectRepository.GetById(dto.ProjectId);
@@ -148,24 +154,18 @@ public class AllocationService : IAllocationService
             throw new BadRequestException("Employee is not active");
 
         if (project.Status == ProjectStatus.Completed)
-            throw new BadRequestException("Project is Completed");
+            throw new BadRequestException("Project is completed");
 
         if (project.Status == ProjectStatus.OnHold)
-            throw new BadRequestException("Project is Cuurently On hold");
+            throw new BadRequestException("Project is currently on hold");
 
-        if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
-            throw new BadRequestException("Invalid utilization percentage");
-
-        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(
-            dto.EmployeeId,
-            dto.StartDate,
-            dto.EndDate);
+        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(dto.EmployeeId, dto.StartDate, dto.EndDate);
 
         var existingAllocations = overlappingAllocations.Where(a => a.Id != id).ToList();
-        var currentAllocation = existingAllocations.Sum(a => a.UtilizationPercentage);
 
-        if (currentAllocation + dto.UtilizationPercentage > 100)
-            throw new BadRequestException("Cannot allocate requested utilization");
+        var canAllocate = CanAllocate(existingAllocations, dto.StartDate, dto.EndDate, dto.UtilizationPercentage);
+        if (!canAllocate)
+            throw new BadRequestException("Employee cannot be allocated more than 100% on overlapping dates");
 
         allocation.EmployeeId = dto.EmployeeId;
         allocation.ProjectId = dto.ProjectId;
@@ -198,9 +198,8 @@ public class AllocationService : IAllocationService
         var result = employee.Where(e=> e.IsActive && e.User.Role == UserRoles.Employee && e.User.IsActive).Select(e =>
         {
             var today = DateOnly.FromDateTime(DateTime.Today);
-            var active = allocation
-                .Where(a =>a.EmployeeId == e.Id &&
-                    a.StartDate <= today && a.EndDate >= today).ToList();
+            var active = allocation.Where(a =>a.EmployeeId == e.Id &&
+                         a.StartDate <= today && a.EndDate >= today).ToList();
                     
             var totalallocation = active.Sum(a => a.UtilizationPercentage);
             return new EmployeeAllocationDTO
@@ -215,7 +214,6 @@ public class AllocationService : IAllocationService
 
         return result;
     }
-
     public bool CanManagerAccessProject(int userId, int projectId)
     {
         var managerEmployee = _employeeRepository.GetByUserId(userId);
@@ -228,7 +226,6 @@ public class AllocationService : IAllocationService
 
         return project.ManagerId == managerEmployee.Id;
     }
-
     public bool CanManagerAccessAllocation(int userId, int allocationId)
     {
         var managerEmployee = _employeeRepository.GetByUserId(userId);
@@ -246,4 +243,15 @@ public class AllocationService : IAllocationService
         return project.ManagerId == managerEmployee.Id;
     }
 
+    private bool CanAllocate(
+    List<Allocation> existingAllocations, DateOnly newStartDate, DateOnly newEndDate, int newUtilization)
+    {
+        for (var date = newStartDate; date <= newEndDate; date = date.AddDays(1))
+        {
+            var allocationOnThisDay = existingAllocations.Where(a => a.StartDate <= date && a.EndDate >= date).Sum(a => a.UtilizationPercentage);
+            if (allocationOnThisDay + newUtilization > 100)
+                return false;
+        }
+        return true;
+    }
 }
