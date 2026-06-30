@@ -16,6 +16,7 @@ namespace VivreSync.HR.Repositories
         {
             return _context.Employees
                 .Include(e => e.User)
+                .Include(e => e.Manager)
                 .Include(e => e.EmployeeSkills)
                 .ThenInclude(es => es.Skill)
                 .ToList();
@@ -25,6 +26,7 @@ namespace VivreSync.HR.Repositories
         {
             return _context.Employees
                 .Include(e => e.User)
+                .Include(e => e.Manager)
                 .Include(e => e.EmployeeSkills)
                 .ThenInclude(es => es.Skill)
                 .FirstOrDefault(e => e.Id == id);
@@ -63,6 +65,30 @@ namespace VivreSync.HR.Repositories
                 .Include(e => e.EmployeeSkills)
                 .ThenInclude(es => es.Skill)
                 .Where(e => !e.IsActive || !e.User.IsActive)
+                .ToList();
+        }
+
+        public bool EmailExists(string email)
+        {
+            return _context.Employees.Any(e => e.Email == email);
+        }
+
+        public bool IsEmployeeUnderManager(int employeeId, int managerEmployeeId)
+        {
+            return _context.Employees.Any(e =>
+                e.Id == employeeId &&
+                e.ManagerId == managerEmployeeId &&
+                e.IsActive);
+        }
+
+        public List<Employee> GetEmployeesUnderManager(int managerEmployeeId)
+        {
+            return _context.Employees
+                .Include(e => e.User)
+                .Include(e => e.Manager)
+                .Include(e => e.EmployeeSkills)
+                .ThenInclude(es => es.Skill)
+                .Where(e => e.ManagerId == managerEmployeeId && e.IsActive)
                 .ToList();
         }
     }

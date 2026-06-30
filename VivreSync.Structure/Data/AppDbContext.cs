@@ -77,6 +77,12 @@ namespace VivreSync.Structure.Data
                 .HasIndex(u => u.UserName)
                 .IsUnique();
 
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Manager)
+                .WithMany(e => e.TeamMembers)
+                .HasForeignKey(e => e.ManagerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             var admin = new Users
             {
                 Id = 1,

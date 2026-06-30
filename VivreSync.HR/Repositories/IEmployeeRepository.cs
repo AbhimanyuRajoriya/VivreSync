@@ -11,6 +11,9 @@ namespace VivreSync.HR.Repositories
         void Update(Employee employee);
         void SaveChanges();
         bool IsEmployeeLinkedToUser(int employeeId, int userId);
+        List<Employee> GetEmployeesUnderManager(int managerEmployeeId);
+        bool IsEmployeeUnderManager(int employeeId, int managerEmployeeId);
         List<Employee> GetInactiveEmployees();
+        bool EmailExists(string email);
     }
 }

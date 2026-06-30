@@ -3,12 +3,12 @@ namespace VivreSync.Timesheets.Services
 {
     public interface ITimesheetsService
     {
-        List<TimesheetResponseDTO> GetAllTimesheets();
-        TimesheetResponseDTO? GetTimesheetById(int id);
-        List<TimesheetResponseDTO> GetByEmployeeId(int id);
-        TimesheetResponseDTO? CreateTimesheet(TimesheetCreateDTO dto);
-        bool UpdateTimesheet(int id, TimesheetUpdateDTO timesheet);
-        List<TimesheetMissedDTO> GetMissedTimesheets(DateOnly weekStartDate);
+        List<TimesheetResponseDTO> GetAllTimesheets(int userId, string role);
+        TimesheetResponseDTO? GetTimesheetById(int id, int userId, string role);
+        List<TimesheetResponseDTO> GetByEmployeeId(int employeeId, int userId, string role);
+        TimesheetResponseDTO? CreateTimesheet(TimesheetCreateDTO dto, int userId);
+        bool UpdateTimesheet(int id, TimesheetUpdateDTO timesheet, int userId);
+        List<TimesheetMissedDTO> GetMissedTimesheets(DateOnly weekStartDate, int userId);
         bool IsTimesheetLinkedToUser(int timesheetId, int userId);
     }
 }

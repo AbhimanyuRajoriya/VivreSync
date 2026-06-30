@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Services;
-using VivreSync.Model.Entities;
+using VivreSync.HR.Services;
 using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Allocations.Controllers
@@ -20,122 +20,132 @@ namespace VivreSync.Allocations.Controllers
             _allocationService = allocationService;
         }
 
-        [HttpGet("GetAll")]
-        [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetAll()
+        [HttpGet("GetAllAllocation")]
+        [Authorize(Roles = "Manager,Employee")]
+        public IActionResult GetAllAllocation()
         {
-            var allocations = _allocationService.GetAll();
-            if (allocations == null)
-                throw new BadRequestException("No Allocations");
-            return Ok(allocations);
+            var userId = GetCurrentUserId();
+            if (User.IsInRole("Manager"))
+            {
+                var allocations = _allocationService.GetAllocationsForManager(userId);
+                return Ok(allocations);
+            }
+
+            if (User.IsInRole("Employee"))
+            {
+                var allocations = _allocationService.GetAllocationsForEmployee(userId);
+                return Ok(allocations);
+            }
+            return BadRequest("Access Denied");
         }
 
-        [HttpGet("GetById/{Allocationid}")]
-        [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetById(int? Allocationid)
+        [HttpGet("GetAllocationById/{allocationId}")]
+        [Authorize(Roles = "Manager,Employee")]
+        public IActionResult GetAllocationById(int allocationId)
         {
-            if (Allocationid == null) throw new BadRequestException("Enter The Allocation ID");
+            if (allocationId <= 0)
+                throw new BadRequestException("Enter valid allocation ID");
 
-            var allocation = _allocationService.GetById(Allocationid.Value);
+            var userId = GetCurrentUserId();
+            var allocation = _allocationService.GetById(allocationId);
             if (allocation == null)
                 return NotFound("Allocation not found");
 
+            if (User.IsInRole("Manager"))
+            {
+                var canAccessAllocation = _allocationService.CanManagerAccessAllocation(userId, allocationId);
+                if (!canAccessAllocation)
+                    throw new BadRequestException("Cannot Allocate the project");
+            }
+            if (User.IsInRole("Employee"))
+            {
+                var employeeAllocations = _allocationService.GetAllocationsForEmployee(userId);
+                var isOwnAllocation = employeeAllocations.Any(a => a.Id == allocationId);
+                if (!isOwnAllocation)
+                    throw new BadRequestException("Cannot check the allocation of other user");
+            }
             return Ok(allocation);
         }
 
-        [HttpPost("Create")]
-        [Authorize(Roles = "Admin, Manager")]
-        public IActionResult Create(AllocationCreateDTO dto)
+        [HttpPost("CreateAllocation")]
+        [Authorize(Roles = "Manager")]
+        public IActionResult CreateAllocation(AllocationCreateDTO dto)
         {
-            if (dto == null) throw new BadRequestException("Enter the reqiured Data");
+            var userId = GetCurrentUserId();
+            var canAccessEmployee = _allocationService.CanManagerAccessEmployee(userId, dto.EmployeeId);
+            var canAccessProject = _allocationService.CanManagerAccessProject(userId, dto.ProjectId);
+            if (!canAccessEmployee || !canAccessProject)
+                throw new BadRequestException("Cannot allocate the this project to this employee");
 
-            if (User.IsInRole("Manager"))
-            {
-                var currentUserId = GetCurrentUserId();
-                var canAccessProject = _allocationService.CanManagerAccessProject(currentUserId, dto.ProjectId);
-                if (!canAccessProject)
-                    throw new BadRequestException("Cannot create allocation for this project");
-            }
-
-            var allocation = _allocationService.Create(dto);
-            if (allocation == null)
-                return BadRequest("Invalid allocation");
-
-            return Ok(allocation);
+            var result = _allocationService.Create(dto);
+            return Ok(result);
         }
 
-        [HttpPost("Update/{Allocationid}")]
-        [Authorize(Roles = "Admin, Manager")]
-        public IActionResult Update(int? Allocationid, AllocationUpdateDTO dto)
+        [HttpPost("UpdateAllocation/{allocationId}")]
+        [Authorize(Roles = "Manager")]
+        public IActionResult UpdateAllocation(int allocationId, AllocationUpdateDTO dto)
         {
-            if (Allocationid == null || dto == null)
-                throw new BadRequestException("Enter both Allocation Id and reqiured Data");
+            if (allocationId <= 0)
+                throw new BadRequestException("Enter valid allocation ID");
 
-            if (User.IsInRole("Manager"))
-            {
-                var currentUserId = GetCurrentUserId();
+            var userId = GetCurrentUserId();
+            var canAccessExistingAllocation = _allocationService.CanManagerAccessAllocation(userId, allocationId);
+            var canAccessNewEmployee = _allocationService.CanManagerAccessEmployee(userId, dto.EmployeeId);
+            var canAccessNewProject = _allocationService.CanManagerAccessProject(userId,dto.ProjectId);
+            if (!canAccessExistingAllocation || !canAccessNewEmployee || !canAccessNewProject)
+                throw new BadRequestException("Cannot Update the Allocation");
 
-                var canAccessExistingAllocation = _allocationService.CanManagerAccessAllocation(currentUserId, Allocationid.Value);
-                if (!canAccessExistingAllocation)
-                    throw new BadRequestException("Cannot access requested allocation");
-
-                var canAccessNewProject = _allocationService.CanManagerAccessProject(currentUserId,dto.ProjectId);
-
-                if (!canAccessNewProject)
-                    throw new BadRequestException("Cannot access this project");
-            }
-
-            var success = _allocationService.Update(Allocationid.Value, dto);
+            var success = _allocationService.Update(allocationId, dto);
             if (!success)
                 return BadRequest("Invalid allocation");
 
-            return Ok("Allocation Updated");
+            return Ok("Allocation updated");
         }
 
         [HttpGet("GetAllEmployees")]
-        [Authorize(Roles = "Admin, Manager")]
+        [Authorize(Roles = "Manager")]
         public IActionResult GetAllEmployees()
         {
-            var employees = _allocationService.GetEmployeeTable();
+            var userId = GetCurrentUserId();
+            var employees = _allocationService.GetEmployeeTable(userId);
             return Ok(employees);
         }
 
         [HttpGet("FreeEmployees")]
-        [Authorize(Roles = "Admin, Manager")]
+        [Authorize(Roles = "Manager")]
         public IActionResult GetFreeEmployees()
         {
-            var employees = _allocationService.GetFreeEmployee();
+            var userId = GetCurrentUserId();
+            var employees = _allocationService.GetFreeEmployee(userId);
             return Ok(employees);
         }
 
         [HttpGet("OccupiedEmployees")]
-        [Authorize(Roles = "Admin, Manager")]
+        [Authorize(Roles = "Manager")]
         public IActionResult GetOccupiedEmployees()
         {
-            var employees = _allocationService.GetOccupiedEmployee();
+            var userId = GetCurrentUserId();
+            var employees = _allocationService.GetOccupiedEmployee(userId);
             return Ok(employees);
         }
 
-        [HttpDelete("Delete/{Allocationid}")]
-        [Authorize(Roles = "Admin, Manager")]
-        public IActionResult Delete(int? Allocationid)
+        [HttpDelete("DeleteAllocation/{allocationId}")]
+        [Authorize(Roles = "Manager")]
+        public IActionResult DeleteAllocation(int allocationId)
         {
-            if (Allocationid == null) throw new BadRequestException("Enter the Allocation ID");
+            if (allocationId <= 0)
+                throw new BadRequestException("Enter valid allocation ID");
 
-            if (User.IsInRole("Manager"))
-            {
-                var currentUserId = GetCurrentUserId();
+            var userId = GetCurrentUserId();
+            var canAccessAllocation = _allocationService.CanManagerAccessAllocation(userId, allocationId);
+            if (!canAccessAllocation)
+                return BadRequest("Cannot access this allocation");
 
-                var canAccessExistingAllocation = _allocationService.CanManagerAccessAllocation(currentUserId, Allocationid.Value);
-                if (!canAccessExistingAllocation)
-                    return Forbid();
-            }
-
-            var success = _allocationService.Delete(Allocationid.Value);
+            var success = _allocationService.Delete(allocationId);
             if (!success)
                 return NotFound("Allocation not found");
 
-            return Ok("Allocation Removed");
+            return Ok("Allocation removed");
         }
         private int GetCurrentUserId()
         {

@@ -49,4 +49,18 @@ public class ProjectRepository: IProjectRepository
            a.ProjectId == projectId && a.Employee.IsActive &&
            a.StartDate <= today && a.EndDate >= today).ToList();
     }
+
+    public bool IsProjectManagedBy(int projectId, int managerEmployeeId)
+    {
+        return _context.Projects.Any(p =>
+            p.Id == projectId &&
+            p.ManagerId == managerEmployeeId);
+    }
+
+    public List<Project> GetProjectsByManager(int managerEmployeeId)
+    {
+        return _context.Projects
+            .Where(p => p.ManagerId == managerEmployeeId)
+            .ToList();
+    }
 }

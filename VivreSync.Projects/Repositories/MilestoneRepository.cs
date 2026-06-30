@@ -24,7 +24,6 @@ public class MilestoneRepository : IMilestoneRepository
             .Include(m => m.Project)
             .FirstOrDefault(m => m.Id == id);
     }
-
     public List<Milestone> GetByProjectId(int projectId)
     {
         return _context.Milestones
@@ -37,14 +36,25 @@ public class MilestoneRepository : IMilestoneRepository
     {
         _context.Milestones.Add(milestone);
     }
-
     public void Update(Milestone milestone)
     {
         _context.Milestones.Update(milestone);
     }
-
     public void SaveChanges()
     {
         _context.SaveChanges();
+    }
+
+    public List<Milestone> GetMilestonesByManager(int managerEmployeeId)
+    {
+        return _context.Milestones
+            .Include(m => m.Project)
+            .Where(m => m.Project.ManagerId == managerEmployeeId).ToList();
+    }
+    public bool IsMilestoneManagedBy(int milestoneId, int managerEmployeeId)
+    {
+        return _context.Milestones.Any(m =>
+            m.Id == milestoneId &&
+            m.Project.ManagerId == managerEmployeeId);
     }
 }

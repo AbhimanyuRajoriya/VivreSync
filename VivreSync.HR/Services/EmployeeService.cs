@@ -20,23 +20,10 @@ namespace VivreSync.HR.Services
         {
             var employees = _repository.GetAll();
 
-            return employees.Where(e => e.IsActive)
-                .Select(e => new EmployeeResponseDTO
-                {
-                    Id = e.Id,
-                    FullName = e.FullName,
-                    Email = e.Email,
-                    Designation = e.Designation,
-                    IsActive = e.IsActive,
-
-                    Skills = e.EmployeeSkills.Select(es => new EmployeeSkillResponseDTO
-                    {
-                        SkillId = es.SkillId,
-                        SkillName = es.Skill.Name,
-                        Level = es.Level.ToString()
-                    }).ToList()
-
-                }).ToList();
+            return employees
+                .Where(e => e.IsActive)
+                .Select(MapToResponse)
+                .ToList();
         }
 
         public EmployeeResponseDTO? GetById(int id)
@@ -49,30 +36,18 @@ namespace VivreSync.HR.Services
             if (!employee.IsActive)
                 throw new NotFoundException("Employee not active");
 
-            return new EmployeeResponseDTO
-            {
-                Id = employee.Id,
-                FullName = employee.FullName,
-                Email = employee.Email,
-                Designation = employee.Designation,
-                IsActive = employee.IsActive,
-
-                Skills = employee.EmployeeSkills.Select(es => new EmployeeSkillResponseDTO
-                {
-                    SkillId = es.SkillId,
-                    SkillName = es.Skill.Name,
-                    Level = es.Level.ToString()
-                }).ToList()
-            };
+            return MapToResponse(employee);
         }
         public EmployeeResponseDTO Create(EmployeeCreateDTO dto)
         {
             var username = dto.UserName.Trim().ToLower();
-
             var existingUser = _userRepository.GetUser(username);
-
             if (existingUser != null)
                 throw new BadRequestException("Username already occupied");
+
+            var email = dto.Email.Trim().ToLower();
+            if (_repository.EmailExists(email))
+                throw new BadRequestException("Email already occupied");
 
             var isValidRole = Enum.TryParse<UserRoles>(
                 dto.Role,
@@ -85,6 +60,10 @@ namespace VivreSync.HR.Services
 
             if (parsedRole == UserRoles.Admin)
                 throw new BadRequestException("Cannot grant Admin role");
+
+            var designation = ParseDesignation(dto.Designation);
+
+            ValidateManager(dto.ManagerId, parsedRole);
 
             var user = new Users
             {
@@ -104,8 +83,9 @@ namespace VivreSync.HR.Services
             {
                 FullName = dto.Name.Trim(),
                 Email = dto.Email.Trim().ToLower(),
-                Designation = dto.Designation.Trim(),
+                Designation = designation,
                 IsActive = true,
+                ManagerId = dto.ManagerId,
                 UserId = user.Id
             };
 
@@ -117,7 +97,7 @@ namespace VivreSync.HR.Services
                 Id = employee.Id,
                 FullName = employee.FullName,
                 Email = employee.Email,
-                Designation = employee.Designation,
+                Designation = employee.Designation.ToString(),
                 IsActive = employee.IsActive,
                 Skills = new List<EmployeeSkillResponseDTO>()
             };
@@ -131,8 +111,10 @@ namespace VivreSync.HR.Services
             if (employee == null)
                 throw new NotFoundException("Employee does not exist");
 
+            var designation = ParseDesignation(dto.Designation);
+
             employee.FullName = dto.FullName.Trim();
-            employee.Designation = dto.Designation.Trim();
+            employee.Designation = designation;
 
             _repository.Update(employee);
             _repository.SaveChanges();
@@ -165,6 +147,28 @@ namespace VivreSync.HR.Services
             return _repository.IsEmployeeLinkedToUser(employeeId, userId);
         }
 
+        public List<EmployeeResponseDTO> GetEmployeesUnderManager(int managerEmployeeId)
+        {
+            var employees = _repository.GetEmployeesUnderManager(managerEmployeeId);
+            return employees
+                .Select(MapToResponse)
+                .ToList();
+        }
+
+        public int GetEmployeeIdByUserId(int userId)
+        {
+            var employee = _repository.GetByUserId(userId);
+            if (employee == null)
+                throw new BadRequestException("Employee profile not found for current user");
+
+            return employee.Id;
+        }
+
+        public bool IsEmployeeUnderManager(int employeeId, int managerEmployeeId)
+        {
+            return _repository.IsEmployeeUnderManager(employeeId, managerEmployeeId);
+        }
+
         private EmployeeResponseDTO MapToResponse(Employee employee)
         {
             return new EmployeeResponseDTO
@@ -172,8 +176,10 @@ namespace VivreSync.HR.Services
                 Id = employee.Id,
                 FullName = employee.FullName,
                 Email = employee.Email,
-                Designation = employee.Designation,
+                Designation = employee.Designation.ToString(),
                 IsActive = employee.IsActive,
+                ManagerId = employee.ManagerId,
+                ManagerName = employee.Manager != null ? employee.Manager.FullName : null,
                 Skills = employee.EmployeeSkills?
                     .Select(es => new EmployeeSkillResponseDTO
                     {
@@ -214,6 +220,48 @@ namespace VivreSync.HR.Services
             _repository.SaveChanges();
 
             return MapToResponse(employee);
+        }
+
+        private Designation ParseDesignation(string designation)
+        {
+            if (string.IsNullOrWhiteSpace(designation))
+                throw new BadRequestException("Designation is required");
+
+            var isValidDesignation = Enum.TryParse<Designation>(designation, true, out var parsedDesignation) && Enum.IsDefined(typeof(Designation), parsedDesignation);
+            if (!isValidDesignation)
+                throw new BadRequestException("Enter valid designation");
+
+            return parsedDesignation;
+        }
+        private void ValidateManager(int? managerId, UserRoles role)
+        {
+            if (role == UserRoles.Admin)
+            {
+                if (managerId != null)
+                    throw new BadRequestException("Admin should not have a manager");
+                return;
+            }
+
+            if (role == UserRoles.Manager)
+            {
+                if (managerId != null)
+                    throw new BadRequestException("Manager should not have a manager");
+                return;
+            }
+
+            if (role == UserRoles.Employee && managerId == null)
+                throw new BadRequestException("Manager is required for employee");
+
+            var manager = _repository.GetById(managerId.Value);
+
+            if (manager == null || !manager.IsActive)
+                throw new BadRequestException("Enter valid active manager");
+
+            if (manager.User == null || !manager.User.IsActive)
+                throw new BadRequestException("Manager user account is inactive");
+
+            if (manager.User.Role != UserRoles.Manager)
+                throw new BadRequestException("Selected manager must have Manager role");
         }
     }
 }

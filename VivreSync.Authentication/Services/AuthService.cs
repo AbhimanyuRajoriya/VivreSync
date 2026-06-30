@@ -51,13 +51,15 @@ namespace VivreSync.Authentication.Services
             };
         }
 
-        public bool ChangePassword(ChangePasswordDTO dto)
+        public bool ChangePassword(int userId, ChangePasswordDTO dto)
         {
             var username = dto.Username.Trim().ToLower();
             var user = _authRepository.GetUserByUsernameAsync(username);
 
             if (user == null)
                 throw new NotFoundException("User does not exist");
+            if (user.Id != userId)
+                throw new UnauthorizedException("Cannot change password of another user");
             if (!user.IsActive)
                 throw new BadRequestException("User is inactive");
 
@@ -79,6 +81,7 @@ namespace VivreSync.Authentication.Services
 
             user.PasswordHash = _passwordHasherService.HashPassword(dto.NewPassword);
             user.PasswordChangeRequired = false;
+            user.TokenVersion++;
 
             _authRepository.SaveChanges();
 
@@ -104,10 +107,10 @@ namespace VivreSync.Authentication.Services
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-
+                new Claim("passwordChangeRequired", user.PasswordChangeRequired.ToString()),
                 new Claim(ClaimTypes.Name, user.UserName),
-
-                new Claim(ClaimTypes.Role, user.Role.ToString())
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim("tokenVersion", user.TokenVersion.ToString())
             };
 
             var token = new JwtSecurityToken(

@@ -6,11 +6,15 @@ public interface IAllocationService
     List<AllocationResponseDTO> GetAll();
     AllocationResponseDTO? GetById(int id);
     AllocationResponseDTO? Create(AllocationCreateDTO dto);
-    List<EmployeeAllocationDTO>? GetEmployeeTable();
-    List<EmployeeAllocationDTO>? GetFreeEmployee();
-    List<EmployeeAllocationDTO>? GetOccupiedEmployee();
-    bool CanManagerAccessProject(int userId, int projectId);
-    bool CanManagerAccessAllocation(int userId, int allocationId);
     bool Delete(int id);
     bool Update(int id, AllocationUpdateDTO dto);
+    List<EmployeeAllocationDTO>? GetEmployeeTable(int userId);
+    List<EmployeeAllocationDTO>? GetFreeEmployee(int userId);
+    List<EmployeeAllocationDTO>? GetOccupiedEmployee(int userId);
+    bool CanManagerAccessProject(int userId, int projectId);
+    bool CanManagerAccessAllocation(int userId, int allocationId);
+    bool CanManagerAccessEmployee(int userId, int employeeId);
+    List<AllocationResponseDTO> GetAllocationsForManager(int userId);
+    List<AllocationResponseDTO> GetAllocationsForEmployee(int employeeId);
+
 }

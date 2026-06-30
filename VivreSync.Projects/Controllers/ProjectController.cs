@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using VivreSync.HR.Services;
 using VivreSync.Projects.DTOs;
 using VivreSync.Projects.Services;
 using VivreSync.Shared.Exceptions;
@@ -12,58 +14,79 @@ namespace VivreSync.Projects.Controllers
     public class ProjectsController : ControllerBase
     {
         private readonly IProjectService _projectService;
+        private readonly IEmployeeService _employeeService;
 
-        public ProjectsController(IProjectService projectService)
+        public ProjectsController(IProjectService projectService, IEmployeeService employee)
         {
             _projectService = projectService;
+            _employeeService = employee;
         }
 
-        [HttpGet("getAll")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GetAll()
+        [HttpGet("GetAllProjects")]
+        [Authorize(Roles = "Admin,Manager")]
+        public IActionResult GetAllProjects()
         {
-            var projects = _projectService.GetAll();
-            if (projects == null)
-                throw new BadRequestException("No Projects Added");
-            return Ok(projects);
+            if (User.IsInRole("Manager"))
+            {
+                var userId = GetCurrentUserId();
+                var managerEmployeeId = _employeeService.GetEmployeeIdByUserId(userId);
+                return Ok(_projectService.GetProjectsByManager(managerEmployeeId));
+            }
+
+            return Ok(_projectService.GetAll());
         }
 
-        [HttpGet("ProjectHealth/{Projectid}")]
-        [Authorize(Roles = "Admin, Manager")]
-        public IActionResult GetProjectHealth(int? Projectid)
+        [HttpGet("GetProjectHealth/{projectId}")]
+        [Authorize(Roles = "Manager")]
+        public IActionResult GetProjectHealth(int projectId)
         {
-            if (Projectid == null) throw new BadRequestException("Enter the Project Id");
+            if (projectId <= 0) throw new BadRequestException("Enter valid project ID");
 
-            var result = _projectService.GetProjectHealth(Projectid.Value);
-            if (result == null)
-                return BadRequest("No Such Project");
-            return Ok(result);
+            if (User.IsInRole("Manager"))
+            {
+                var userId = GetCurrentUserId();
+                var managerEmployeeId = _employeeService.GetEmployeeIdByUserId(userId);
+                var isOwnProject = _projectService.IsProjectManagedBy(projectId, managerEmployeeId);
+
+                if (!isOwnProject)
+                    throw new BadRequestException("Cannot access this project");
+            }
+            return Ok(_projectService.GetProjectHealth(projectId));
         }
 
         [HttpPost("CreateProject")]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(ProjectCreateDTO dto)
+        public IActionResult CreateProject(ProjectCreateDTO dto)
         {
             if (dto == null) throw new BadRequestException("Enter the Required Details");
 
             var project = _projectService.Create(dto);
             if (project == null)
-                return BadRequest("Couldn't Create Project With these Details");
+                throw new BadRequestException("Cannot create project with these details");
 
             return Ok(project);
         }
 
         [HttpPost("UpdateProject")]
         [Authorize(Roles = "Admin")]
-        public IActionResult Update(ProjectUpdateDTO dto)
+        public IActionResult UpdateProject(ProjectUpdateDTO dto)
         {
             if (dto == null) throw new BadRequestException("Enter the Details");
 
             var result = _projectService.Update(dto);
             if (!result)
-                return BadRequest("Couldn't Update Project Check Entered Data");
+                throw new BadRequestException("Cannot update project with these details");
 
             return Ok("Project updated successfully");
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userId, out var currentUserId))
+                throw new UnauthorizedException("Invalid token");
+
+            return currentUserId;
         }
     }
 }

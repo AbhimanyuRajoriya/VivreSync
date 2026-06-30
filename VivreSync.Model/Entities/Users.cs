@@ -9,6 +9,7 @@ namespace VivreSync.Model.Entities
         public UserRoles Role { get; set; }
         public bool PasswordChangeRequired { get; set; }
         public bool IsActive { get; set; }
+        public int TokenVersion { get; set; } = 1;
         public Employee? Employee { get; set; }
     }
 }

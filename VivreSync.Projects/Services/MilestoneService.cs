@@ -1,3 +1,4 @@
+using VivreSync.HR.Repositories;
 using VivreSync.Model.Entities;
 using VivreSync.Model.Enums;
 using VivreSync.Projects.DTOs;
@@ -8,10 +9,13 @@ namespace VivreSync.Projects.Services;
 public class MilestoneService : IMilestoneService
 {
     private readonly IMilestoneRepository _milestoneRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     private readonly IProjectRepository _projectRepository;
-    public MilestoneService(IMilestoneRepository milestoneRepository,IProjectRepository projectRepository)
+
+    public MilestoneService(IMilestoneRepository milestoneRepository, IEmployeeRepository employeeRepository, IProjectRepository projectRepository)
     {
         _milestoneRepository = milestoneRepository;
+        _employeeRepository = employeeRepository;
         _projectRepository = projectRepository;
     }
 
@@ -125,5 +129,46 @@ public class MilestoneService : IMilestoneService
             }
         }
         _milestoneRepository.SaveChanges();
+    }
+
+    public List<MilestoneResponseDTO> GetMilestonesForManager(int userId)
+    {
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
+            throw new BadRequestException("Manager employee profile not found");
+
+        var milestones = _milestoneRepository.GetMilestonesByManager(managerEmployee.Id);
+        return milestones.Select(MapToResponse).ToList();
+    }
+
+    public bool CanManagerAccessMilestone(int userId, int milestoneId)
+    {
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
+            return false;
+
+        return _milestoneRepository.IsMilestoneManagedBy(milestoneId, managerEmployee.Id);
+    }
+
+    public bool CanManagerAccessProject(int userId, int projectId)
+    {
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
+            return false;
+
+        return _projectRepository.IsProjectManagedBy(projectId, managerEmployee.Id);
+    }
+
+    private MilestoneResponseDTO MapToResponse(Milestone milestone)
+    {
+        return new MilestoneResponseDTO
+        {
+            Id = milestone.Id,
+            ProjectId = milestone.ProjectId,
+            ProjectName = milestone.Project.Name,
+            Progress = milestone.Title,
+            DueDate = milestone.DueDate,
+            Status = milestone.Status.ToString()
+        };
     }
 }

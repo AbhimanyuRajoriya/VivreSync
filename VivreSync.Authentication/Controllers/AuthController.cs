@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using VivreSync.Authentication.DTOs;
 using VivreSync.Authentication.Services;
 using VivreSync.Shared.Exceptions;
@@ -30,16 +31,27 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("change-password")]
-    [AllowAnonymous]
+    [HttpPost("ChangePassword")]
+    [Authorize]
     public IActionResult ChangePassword(ChangePasswordDTO dto)
     {
-        if (dto == null) throw new BadRequestException("Enter the Details");
+        if (dto == null)
+            throw new BadRequestException("Enter required data");
 
-        var result = _authService.ChangePassword(dto);
+        var userId = GetCurrentUserId();
+        var result = _authService.ChangePassword(userId, dto);
         if (!result)
-            return BadRequest("Invalid username or old password");
+            return BadRequest("Password could not be changed");
 
-        return Ok("Password changed successfully");
+        return Ok("Password changed successfully. Please login again.");
+    }
+
+    private int GetCurrentUserId()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userId, out var currentUserId))
+            throw new UnauthorizedException("Invalid token");
+
+        return currentUserId;
     }
 }

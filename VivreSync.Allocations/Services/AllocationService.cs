@@ -177,41 +177,47 @@ public class AllocationService : IAllocationService
 
         return true;
     }
-    public List<EmployeeAllocationDTO>? GetFreeEmployee()
+    public List<EmployeeAllocationDTO>? GetFreeEmployee(int userId)
     {
-        return GetEmployeeTable()?.Where(e => e.AvailableCapacity > 0).ToList(); ;
+        var employees = GetEmployeeTable(userId);
+        return employees?.Where(e => e.AvailableCapacity > 0).ToList();
     }
-    public List<EmployeeAllocationDTO>? GetOccupiedEmployee()
+    public List<EmployeeAllocationDTO>? GetOccupiedEmployee(int userId)
     {
-        return GetEmployeeTable()?.Where(e => e.TotalAllocation == 100).ToList();
+        var employees = GetEmployeeTable(userId);
+        return employees?.Where(e => e.TotalAllocation == 100).ToList();
     }
-    public List<EmployeeAllocationDTO>? GetEmployeeTable()
+    public List<EmployeeAllocationDTO>? GetEmployeeTable(int userId)
     {
-        var employee = _employeeRepository.GetAll();
-        if (employee == null)
-            throw new BadRequestException("Employee cannot be loaded");
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
+            throw new BadRequestException("Manager employee profile not found");
 
-        var allocation = _allocationRepository.GetAll();
-        if (allocation == null)
-            throw new BadRequestException("Allocations cannot be loaded");
+        var employees = _employeeRepository.GetAll()
+            .Where(e =>
+                e.IsActive &&
+                e.ManagerId == managerEmployee.Id).ToList();
 
-        var result = employee.Where(e=> e.IsActive && e.User.Role == UserRoles.Employee && e.User.IsActive).Select(e =>
+        var allocations = _allocationRepository.GetAll();
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var result = employees.Select(e =>
         {
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            var active = allocation.Where(a =>a.EmployeeId == e.Id &&
-                         a.StartDate <= today && a.EndDate >= today).ToList();
-                    
-            var totalallocation = active.Sum(a => a.UtilizationPercentage);
+            var activeAllocations = allocations
+                .Where(a =>
+                    a.EmployeeId == e.Id &&
+                    a.StartDate <= today &&
+                    a.EndDate >= today).ToList();
+
+            var totalAllocation = activeAllocations.Sum(a => a.UtilizationPercentage);
             return new EmployeeAllocationDTO
             {
                 EmployeeId = e.Id,
                 EmployeeName = e.FullName,
-                TotalAllocation = totalallocation,
-                AvailableCapacity = 100 - totalallocation,
-                Projects = active.Select(a => $"{a.Project.Name} - {a.UtilizationPercentage}%").ToList()
+                TotalAllocation = totalAllocation,
+                AvailableCapacity = 100 - totalAllocation,
+                Projects = activeAllocations.Select(a => a.Project.Name).ToList()
             };
         }).ToList();
-
         return result;
     }
     public bool CanManagerAccessProject(int userId, int projectId)
@@ -220,11 +226,7 @@ public class AllocationService : IAllocationService
         if (managerEmployee == null)
             return false;
 
-        var project = _projectRepository.GetById(projectId);
-        if (project == null)
-            return false;
-
-        return project.ManagerId == managerEmployee.Id;
+        return _projectRepository.IsProjectManagedBy(projectId, managerEmployee.Id);
     }
     public bool CanManagerAccessAllocation(int userId, int allocationId)
     {
@@ -236,11 +238,45 @@ public class AllocationService : IAllocationService
         if (allocation == null)
             return false;
 
-        var project = _projectRepository.GetById(allocation.ProjectId);
-        if (project == null)
+        var ownsEmployee = _employeeRepository.IsEmployeeUnderManager(allocation.EmployeeId, managerEmployee.Id);
+        var ownsProject = _projectRepository.IsProjectManagedBy(allocation.ProjectId, managerEmployee.Id);
+        return ownsEmployee && ownsProject;
+    }
+
+    public bool CanManagerAccessEmployee(int userId, int employeeId)
+    {
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
             return false;
 
-        return project.ManagerId == managerEmployee.Id;
+        return _employeeRepository.IsEmployeeUnderManager(employeeId, managerEmployee.Id);
+    }
+
+    public List<AllocationResponseDTO> GetAllocationsForManager(int userId)
+    {
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
+            throw new BadRequestException("Manager employee profile not found");
+
+        var allocations = _allocationRepository.GetAll()
+            .Where(a =>
+                a.Employee.ManagerId == managerEmployee.Id &&
+                a.Project.ManagerId == managerEmployee.Id &&
+                a.Employee.IsActive).ToList();
+
+        return allocations.Select(MapToResponse).ToList();
+    }
+
+    public List<AllocationResponseDTO> GetAllocationsForEmployee(int userId)
+    {
+        var employee = _employeeRepository.GetByUserId(userId);
+        if (employee == null)
+            throw new BadRequestException("Employee profile not found");
+
+        var allocations = _allocationRepository.GetAll()
+            .Where(a => a.EmployeeId == employee.Id).ToList();
+
+        return allocations.Select(MapToResponse).ToList();
     }
 
     private bool CanAllocate(
@@ -253,5 +289,20 @@ public class AllocationService : IAllocationService
                 return false;
         }
         return true;
+    }
+
+    private AllocationResponseDTO MapToResponse(Allocation allocation)
+    {
+        return new AllocationResponseDTO
+        {
+            Id = allocation.Id,
+            EmployeeId = allocation.EmployeeId,
+            EmployeeName = allocation.Employee.FullName,
+            ProjectId = allocation.ProjectId,
+            ProjectName = allocation.Project.Name,
+            UtilizationPercentage = allocation.UtilizationPercentage,
+            StartDate = allocation.StartDate,
+            EndDate = allocation.EndDate
+        };
     }
 }

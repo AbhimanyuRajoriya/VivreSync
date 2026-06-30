@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -118,9 +119,27 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
+        var errors = context.ModelState.Where(x => x.Value != null && x.Value.Errors.Count > 0)
+            .SelectMany(x => x.Value!.Errors.Select(error =>
+            {
+                var fieldName = x.Key.Replace("$.", "").Replace("dto.", "").Replace("DTO.", "").Trim();
+
+                if (string.IsNullOrWhiteSpace(fieldName) || fieldName == "dto")
+                    fieldName = "Request body";
+
+                if (error.ErrorMessage.Contains("The JSON value could not be converted"))
+                    return $"{fieldName} has invalid data type";
+
+                if (error.ErrorMessage.Contains("The dto field is required"))
+                    return "Request body is required";
+
+                return error.ErrorMessage;
+            })).ToList();
+
         return new BadRequestObjectResult(new
         {
-            message = "Invalid request data. Please check the request body and field types."
+            message = "Validation failed",
+            errors = errors
         });
     };
 });
@@ -166,6 +185,78 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.ToLower() ?? "";
+    var isSwagger =path.Contains("/swagger") || path.Contains("/swagger/v1/swagger.json");
+    if (isSwagger)
+    {
+        await next();
+        return;
+    }
+
+    var isLoggedIn = context.User.Identity?.IsAuthenticated == true;
+    if (!isLoggedIn)
+    {
+        await next();
+        return;
+    }
+
+    var isLogin = path.Contains("/api/auth/login");
+    if (!isLogin)
+    {
+        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var tokenVersionClaim = context.User.FindFirst("tokenVersion")?.Value;
+        if (!int.TryParse(userIdClaim, out var userId) ||
+            !int.TryParse(tokenVersionClaim, out var tokenVersionFromToken))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = "Invalid token"
+            });
+            return;
+        }
+
+        using var scope = context.RequestServices.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = dbContext.Users.FirstOrDefault(u => u.Id == userId);
+        if (user == null || !user.IsActive)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = "Invalid or inactive user"
+            });
+            return;
+        }
+        if (user.TokenVersion != tokenVersionFromToken)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = "Token expired due to password change. Please login again."
+            });
+            return;
+        }
+    }
+
+    var mustChangePassword = context.User.FindFirst("passwordChangeRequired")?.Value == "True";
+    var isChangePassword = path.Contains("/api/auth/changepassword") || path.Contains("/api/auth/change-password");
+    var allowedApi = isLogin || isChangePassword;
+    if (mustChangePassword && !allowedApi)
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "Password change is required before accessing the system."
+        });
+        return;
+    }
+    await next();
+});
+
 app.UseAuthorization();
 
 app.MapControllers();

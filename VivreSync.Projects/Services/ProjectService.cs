@@ -55,16 +55,11 @@ public class ProjectService : IProjectService
         if (manager.User == null || manager.User.Role != UserRoles.Manager)
             throw new BadRequestException("Employee must have Manager role");
 
-        var isValidStatus = Enum.TryParse<ProjectStatus>(dto.Status, true, out var parsedStatus ) && Enum.IsDefined(typeof(ProjectStatus), parsedStatus);
-
-        if (!isValidStatus)
-            throw new BadRequestException("Invalid project status");
-
         var project = new Project
         {
             Name = dto.Name,
             Client = dto.Client,
-            Status = parsedStatus,
+            Status = ProjectStatus.Active,
             ManagerId = dto.ManagerId
         };
 
@@ -202,6 +197,30 @@ public class ProjectService : IProjectService
                 StartDate = a.StartDate,
                 EndDate = a.EndDate
             }).ToList()
+        };
+    }
+
+    public bool IsProjectManagedBy(int projectId, int managerEmployeeId)
+    {
+        return _projectRepository.IsProjectManagedBy(projectId, managerEmployeeId);
+    }
+    public List<ProjectResponseDTO> GetProjectsByManager(int managerEmployeeId)
+    {
+        var projects = _projectRepository.GetProjectsByManager(managerEmployeeId);
+
+        return projects.Select(MapToResponse).ToList();
+    }
+
+    private ProjectResponseDTO MapToResponse(Project project)
+    {
+        return new ProjectResponseDTO
+        {
+            Id = project.Id,
+            Name = project.Name,
+            Client = project.Client,
+            ManagerId = project.ManagerId,
+            ManagerName = project.Manager.FullName,
+            Status = project.Status.ToString()
         };
     }
 }

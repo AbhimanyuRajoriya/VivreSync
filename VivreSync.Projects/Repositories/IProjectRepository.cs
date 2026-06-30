@@ -8,5 +8,7 @@ public interface IProjectRepository
     void Update(Project project);
     Project? GetProjectHealth(int projectId);
     List<Allocation> GetEmployeesinProject(int projectId, DateOnly today);
+    List<Project> GetProjectsByManager(int managerEmployeeId);
+    bool IsProjectManagedBy(int projectId, int managerEmployeeId);
     void SaveChanges();
 }

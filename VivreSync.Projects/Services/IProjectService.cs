@@ -7,4 +7,6 @@ public interface IProjectService
     ProjectResponseDTO? Create(ProjectCreateDTO dto);
     bool Update(ProjectUpdateDTO dto);
     ProjectHealthResponseDTO? GetProjectHealth(int projectId);
+    List<ProjectResponseDTO> GetProjectsByManager(int managerEmployeeId);
+    bool IsProjectManagedBy(int projectId, int managerEmployeeId);
 }

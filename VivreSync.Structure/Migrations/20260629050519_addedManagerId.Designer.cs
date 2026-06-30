@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VivreSync.Structure.Data;
 
@@ -11,9 +12,11 @@ using VivreSync.Structure.Data;
 namespace VivreSync.Structure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260629050519_addedManagerId")]
+    partial class addedManagerId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -266,9 +269,6 @@ namespace VivreSync.Structure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
-                    b.Property<int>("TokenVersion")
-                        .HasColumnType("int");
-
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -286,9 +286,8 @@ namespace VivreSync.Structure.Migrations
                             Id = 1,
                             IsActive = true,
                             PasswordChangeRequired = true,
-                            PasswordHash = "AQAAAAIAAYagAAAAEIbZOQT+N2dO9EzMeZg8Y8oTpyS2RFrUlwchH2e1TSy/ncFjiRDWYYTVk5xZodCoUg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEJGwz6LQSn+KNh4twacGU36VSs/TjfSTvaiOYRZ/pa8ZZPdt6aXEabJVClhvyGfI7Q==",
                             Role = 1,
-                            TokenVersion = 1,
                             UserName = "admin"
                         });
                 });

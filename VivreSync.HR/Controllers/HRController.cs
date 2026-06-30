@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VivreSync.HR.DTOs;
 using VivreSync.HR.Services;
-using VivreSync.Model.Entities;
 using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.HR.Controllers;
@@ -20,95 +19,96 @@ public class EmployeesController : ControllerBase
         _service = service;
     }
 
-    [HttpGet("Employees")]
-    [Authorize(Roles = "Admin, Manager")]
-    public IActionResult GetAll()
+    [HttpGet("GetAllEmployees")]
+    [Authorize(Roles = "Admin,Manager")]
+    public IActionResult GetAllEmployees()
     {
+        if (User.IsInRole("Manager"))
+        {
+            var currentUserId = GetCurrentUserId();
+            var managerEmployeeId = _service.GetEmployeeIdByUserId(currentUserId);
+            var managerEmployees = _service.GetEmployeesUnderManager(managerEmployeeId);
+
+            return Ok(managerEmployees);
+        }
+
         var employees = _service.GetAll();
-        if (employees == null) throw new BadRequestException("No Employees");
-        return Ok(_service.GetAll());
+        return Ok(employees);
     }
 
-    [HttpGet("employees/{Employeeid}")]
+    [HttpGet("GetEmployeeById/{employeeId}")]
     [Authorize(Roles = "Admin,Manager,Employee")]
-    public IActionResult GetEmployeeById(int? Employeeid)
+    public IActionResult GetEmployeeById(int employeeId)
     {
-        if (Employeeid == null) throw new BadRequestException("Enter the Employee ID");
+        if (employeeId <= 0) throw new BadRequestException("Enter valid Employee ID");
 
         if (User.IsInRole("Employee"))
         {
             var currentUserId = GetCurrentUserId();
-            var isOwnProfile = _service.IsEmployeeLinkedToUser(Employeeid.Value, currentUserId);
+            var isOwnProfile = _service.IsEmployeeLinkedToUser(employeeId, currentUserId);
             if (!isOwnProfile)
-                throw new UnauthorizedException("Cannot access this data");
+                throw new BadRequestException("Cannot See other employee details");
         }
-
-        var employee = _service.GetById(Employeeid.Value);
-        if (employee == null)
-            return NotFound("Employee not found");
-
+        if (User.IsInRole("Manager"))
+        {
+            var currentUserId = GetCurrentUserId();
+            var managerEmployeeId = _service.GetEmployeeIdByUserId(currentUserId);
+            var isOwnEmployee = _service.IsEmployeeUnderManager(employeeId, managerEmployeeId);
+            if (!isOwnEmployee)
+                throw new BadRequestException("Cannot see details of employees not under you");
+        }
+        var employee = _service.GetById(employeeId);
         return Ok(employee);
     }
 
-    [HttpPost("EmployeeAdd")]
+    [HttpPost("CreateEmployee")]
     [Authorize(Roles = "Admin")]
     public IActionResult CreateEmployee(EmployeeCreateDTO dto)
     {
-        if (dto == null) throw new BadRequestException("Enter the Required Details");
+        if (dto == null) throw new BadRequestException("Enter the required details");
 
         var employee = _service.Create(dto);
-        if (employee == null)
-            return BadRequest("Enter Valid Request");
-
-        return Ok(employee);
+        return Ok("Employee Created");
     }
 
-    [HttpPost("EmployeeUpdate")]
+    [HttpPost("UpdateEmployee")]
     [Authorize(Roles = "Admin")]
     public IActionResult UpdateEmployee(EmployeeUpdateDTO dto)
     {
-        if (dto == null) throw new BadRequestException("Enter the Required Details");
+        if (dto == null) throw new BadRequestException("Enter the required details");
 
         var result = _service.Update(dto);
-        if (result == null)
-            return NotFound("Employee not found");
-
-        return Ok("Employee updated successfully");
+        return Ok("Employee Updated");
     }
 
-    [HttpPost("EmployeeDeactivate/{Employeeid}")]
+    [HttpPatch("DeactivateEmployee/{employeeId}")]
     [Authorize(Roles = "Admin")]
-    public IActionResult DeactiavteEmployee(int? Employeeid)
+    public IActionResult DeactivateEmployee(int employeeId)
     {
-        if (Employeeid == null)
-            throw new BadRequestException("Enter the Employee ID");
+        if (employeeId <= 0) throw new BadRequestException("Enter valid Employee ID");
 
-        var result = _service.Deactivate(Employeeid);
+        var result = _service.Deactivate(employeeId);
         if (!result)
-            return BadRequest("Not Found");
-        return Ok("Employee Deactivated");
+            throw new BadRequestException("Employee Not Found");
+
+        return Ok("Employee deactivated");
     }
 
-    [HttpGet("Inactive_Employee")]
+    [HttpGet("GetInactiveEmployees")]
     [Authorize(Roles = "Admin")]
     public IActionResult GetInactiveEmployees()
     {
         var result = _service.GetInactiveEmployees();
-        if (result == null)
-            return BadRequest("Not Found");
         return Ok(result);
     }
 
-    [HttpPatch("activate/{Employeeid}")]
+    [HttpPatch("ActivateEmployee/{employeeId}")]
     [Authorize(Roles = "Admin")]
-    public IActionResult ActivateEmployee(int? Employeeid)
+    public IActionResult ActivateEmployee(int employeeId)
     {
-        if (Employeeid == null)
-            throw new BadRequestException("Enter the Employee ID");
+        if (employeeId <= 0) throw new BadRequestException("Enter valid Employee ID");
 
-        var result = _service.ActivateEmployee(Employeeid);
-        if (result == null)
-            return BadRequest("Not Found");
+        var result = _service.ActivateEmployee(employeeId);
         return Ok(result);
     }
 
@@ -132,7 +132,7 @@ public class SkillController : ControllerBase
     {
         _skillService = skillService;
     }
-    [HttpGet("Skills")]
+    [HttpGet("GetAllSkills")]
     [Authorize(Roles = "Admin, Manager")]
     public IActionResult GetAllSkills()
     {
@@ -142,7 +142,7 @@ public class SkillController : ControllerBase
         return Ok(_skillService.GetAllSkills());
     }
 
-    [HttpPost("SkillsAdd")]
+    [HttpPost("CreateSkill")]
     [Authorize(Roles = "Admin")]
     public IActionResult CreateSkill(SkillCreateDTO dto)
     {
@@ -154,7 +154,7 @@ public class SkillController : ControllerBase
         return Ok("Skill Created");
     }
 
-    [HttpPost("SkillAssign")]
+    [HttpPost("AssignSkill")]
     [Authorize(Roles = "Admin")]
     public IActionResult AssignSkill(SkillAssignDTO dto)
     {
