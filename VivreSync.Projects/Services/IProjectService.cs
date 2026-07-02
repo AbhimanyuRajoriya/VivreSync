@@ -2,11 +2,9 @@ using VivreSync.Projects.DTOs;
 namespace VivreSync.Projects.Services;
 public interface IProjectService
 {
-    List<ProjectResponseDTO> GetAll();
-    ProjectResponseDTO? GetById(int id);
+    List<ProjectResponseDTO> GetAll(int userId, string role);
+    ProjectResponseDTO? GetById(int id, int userId, string role);
     ProjectResponseDTO? Create(ProjectCreateDTO dto);
     bool Update(ProjectUpdateDTO dto);
-    ProjectHealthResponseDTO? GetProjectHealth(int projectId);
-    List<ProjectResponseDTO> GetProjectsByManager(int managerEmployeeId);
-    bool IsProjectManagedBy(int projectId, int managerEmployeeId);
+    ProjectHealthResponseDTO? GetProjectHealth(int projectId, int userId);
 }

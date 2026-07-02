@@ -48,8 +48,11 @@ namespace VivreSync.HR.Services
             var employee = _employeeRepository.GetById(dto.EmployeeId);
             var skill = _skillRepository.GetById(dto.SkillId);
 
-            if (employee == null || !employee.IsActive || skill == null)
-                throw new BadRequestException("Enter valid ID");
+            if (employee == null || !employee.IsActive)
+                throw new BadRequestException("Enter valid Employee ID");
+
+            if (skill == null)
+                throw new BadRequestException("Enter Valid Skill ID");
 
             if (!Enum.TryParse(dto.Level, true, out Levels level) || !Enum.IsDefined(typeof(Levels), level))
                 throw new BadRequestException("Enter Valid Level of Skill");

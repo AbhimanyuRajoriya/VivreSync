@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
 
         var result = _authService.Login(dto);
         if (result == null)
-            return BadRequest("Invalid username or password");
+            throw new BadRequestException("Invalid UserName or Password");
 
         return Ok(result);
     }
@@ -41,7 +41,7 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         var result = _authService.ChangePassword(userId, dto);
         if (!result)
-            return BadRequest("Password could not be changed");
+            throw new BadRequestException("Cannot Change the Password");
 
         return Ok("Password changed successfully. Please login again.");
     }

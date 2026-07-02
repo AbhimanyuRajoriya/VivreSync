@@ -14,51 +14,50 @@ public class ProjectService : IProjectService
         _projectRepository = projectRepository;
         _employeeRepository = employeeRepository;
     }
-    public List<ProjectResponseDTO> GetAll()
+    public List<ProjectResponseDTO> GetAll(int userId, string role)
     {
-        var projects = _projectRepository.GetAll();
-
-        return projects.Select(p => new ProjectResponseDTO
+        if (role == "Admin")
         {
-            Id = p.Id,
-            Name = p.Name,
-            Client = p.Client,
-            Status = p.Status.ToString(),
-            ManagerId = p.ManagerId,
-            ManagerName = p.Manager.FullName
-        }).ToList();
+            var projects = _projectRepository.GetAll();
+            return projects.Select(MapToResponse).ToList();
+        }
+        if (role == "Manager")
+        {
+            var managerEmployee = GetManagerEmployee(userId);
+            var projects = _projectRepository.GetProjectsByManager(managerEmployee.Id);
+
+            return projects.Select(MapToResponse).ToList();
+        }
+        throw new BadRequestException("Access denied");
     }
-    public ProjectResponseDTO? GetById(int id)
+
+    public ProjectResponseDTO? GetById(int id, int userId, string role)
     {
         var project = _projectRepository.GetById(id);
-
         if (project == null)
-            throw new NotFoundException("Project does not exist"); ;
+            throw new NotFoundException("Project does not exist");
+        if (role == "Manager")
+            ValidateManagerAccessProject(userId, project);
+        else if (role != "Admin")
+            throw new BadRequestException("Access denied");
 
-        return new ProjectResponseDTO
-        {
-            Id = project.Id,
-            Name = project.Name,
-            Client = project.Client,
-            Status = project.Status.ToString(),
-            ManagerId = project.ManagerId,
-            ManagerName = project.Manager.FullName
-        };
+        return MapToResponse(project);
     }
+
     public ProjectResponseDTO? Create(ProjectCreateDTO dto)
     {
         var manager = _employeeRepository.GetById(dto.ManagerId);
-
         if (manager == null || !manager.IsActive)
-            throw new BadRequestException("Manager must Exist and be an active employee");
-
-        if (manager.User == null || manager.User.Role != UserRoles.Manager)
+            throw new BadRequestException("Manager must exist and be an active employee");
+        if (manager.User == null || !manager.User.IsActive)
+            throw new BadRequestException("Manager user account is inactive");
+        if (manager.User.Role != UserRoles.Manager)
             throw new BadRequestException("Employee must have Manager role");
 
         var project = new Project
         {
-            Name = dto.Name,
-            Client = dto.Client,
+            Name = dto.Name.Trim(),
+            Client = dto.Client.Trim(),
             Status = ProjectStatus.Active,
             ManagerId = dto.ManagerId
         };
@@ -80,27 +79,15 @@ public class ProjectService : IProjectService
     {
         var project = _projectRepository.GetById(dto.Id);
         if (project == null)
-            throw new NotFoundException("Invalid Project ID");
-
-        var manager = _employeeRepository.GetById(dto.ManagerId);
-        if (manager == null || !manager.IsActive)
-            throw new BadRequestException("Manager must be an active employee");
-
-        if (manager.User == null || manager.User.Role != UserRoles.Manager)
-            throw new BadRequestException("Employee must have Manager role");
+            throw new NotFoundException("Invalid project ID");
 
         var isValidStatus = Enum.TryParse<ProjectStatus>(dto.Status, true, out var parsedStatus) && Enum.IsDefined(typeof(ProjectStatus), parsedStatus);
-
         if (!isValidStatus)
             throw new BadRequestException("Invalid project status");
 
-        if (!isValidStatus)
-            throw new BadRequestException("Invalid project status");
-
-        project.Name = dto.Name;
-        project.Client = dto.Client;
+        project.Name = dto.Name.Trim();
+        project.Client = dto.Client.Trim();
         project.Status = parsedStatus;
-        project.ManagerId = dto.ManagerId;
 
         _projectRepository.Update(project);
         _projectRepository.SaveChanges();
@@ -108,46 +95,45 @@ public class ProjectService : IProjectService
         return true;
     }
 
-    public ProjectHealthResponseDTO? GetProjectHealth(int projectId)
+    public ProjectHealthResponseDTO? GetProjectHealth(int projectId, int userId)
     {
         var project = _projectRepository.GetProjectHealth(projectId);
         if (project == null)
             throw new NotFoundException("Project does not exist");
 
+        ValidateManagerAccessProject(userId, project);
+
         var today = DateOnly.FromDateTime(DateTime.Today);
-
-        var activeAllocations = _projectRepository
-            .GetEmployeesinProject(projectId, today);
-
+        var activeAllocations = _projectRepository.GetEmployeesinProject(projectId, today);
         var reasons = new List<string>();
-
         var delayedMilestones = project.Milestones
-            .Where(m => m.Status.ToString() == "Delayed").ToList();
+            .Where(m => m.Status == MilestoneStatus.Delayed).ToList();
 
         var overdueMilestones = project.Milestones
-            .Where(m =>
-                m.DueDate < today &&
-                m.Status.ToString() != "Completed").ToList();
+            .Where(m => m.DueDate < today && m.Status != MilestoneStatus.Completed).ToList();
 
         string health;
 
-        if(project.Status == ProjectStatus.Completed)
+        if (project.Status == ProjectStatus.Completed)
         {
-            reasons.Add($"{project.Name} is Completed");
+            reasons.Add($"{project.Name} is completed");
             return new ProjectHealthResponseDTO
             {
                 ProjectID = project.Id,
                 ProjectName = project.Name,
+                Health = "Completed",
                 Reasons = reasons
             };
         }
+
         if (project.Status == ProjectStatus.OnHold)
         {
-            reasons.Add($"{project.Name} is Cuurently On Hold");
+            reasons.Add($"{project.Name} is currently on hold");
             return new ProjectHealthResponseDTO
             {
                 ProjectID = project.Id,
                 ProjectName = project.Name,
+                Health = "OnHold",
                 Reasons = reasons
             };
         }
@@ -165,8 +151,7 @@ public class ProjectService : IProjectService
         else if (!activeAllocations.Any())
         {
             health = "AtRisk";
-            if (!activeAllocations.Any())
-                reasons.Add("No employee is allocated for this project");
+            reasons.Add("No employee is allocated for this project");
         }
         else
         {
@@ -200,15 +185,20 @@ public class ProjectService : IProjectService
         };
     }
 
-    public bool IsProjectManagedBy(int projectId, int managerEmployeeId)
+    private Employee GetManagerEmployee(int userId)
     {
-        return _projectRepository.IsProjectManagedBy(projectId, managerEmployeeId);
-    }
-    public List<ProjectResponseDTO> GetProjectsByManager(int managerEmployeeId)
-    {
-        var projects = _projectRepository.GetProjectsByManager(managerEmployeeId);
+        var managerEmployee = _employeeRepository.GetByUserId(userId);
+        if (managerEmployee == null)
+            throw new BadRequestException("Manager employee profile not found");
 
-        return projects.Select(MapToResponse).ToList();
+        return managerEmployee;
+    }
+
+    private void ValidateManagerAccessProject(int userId, Project project)
+    {
+        var managerEmployee = GetManagerEmployee(userId);
+        if (project.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this project");
     }
 
     private ProjectResponseDTO MapToResponse(Project project)

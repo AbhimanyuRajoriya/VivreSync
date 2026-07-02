@@ -13,28 +13,35 @@ namespace VivreSync.Timesheets.DTOs
         public int ProjectId { get; set; }
 
         [Required(ErrorMessage ="Enter Start of week")]
-        public DateOnly WeekStartDate { get; set; }
+        public DateOnly? WeekStartDate { get; set; }
 
-        [Required(ErrorMessage ="Enter working hours of monday")]
-        public int MondayHours { get; set; }
+        [Required(ErrorMessage = "Enter working hours of monday")]
+        [Range(0, 24, ErrorMessage = "Monday hours must be between 0 and 24")]
+        public int? MondayHours { get; set; }
 
         [Required(ErrorMessage = "Enter working hours of tuesday")]
-        public int TuesdayHours { get; set; }
+        [Range(0, 24, ErrorMessage = "Tuesday hours must be between 0 and 24")]
+        public int? TuesdayHours { get; set; }
 
         [Required(ErrorMessage = "Enter working hours of wednesday")]
-        public int WednesdayHours{ get; set; }
+        [Range(0, 24, ErrorMessage = "Wednesday hours must be between 0 and 24")]
+        public int? WednesdayHours { get; set; }
 
-        [Required(ErrorMessage = "Enter working hours of thrusday")]
-        public int ThursdayHours { get; set; }
+        [Required(ErrorMessage = "Enter working hours of thursday")]
+        [Range(0, 24, ErrorMessage = "Thursday hours must be between 0 and 24")]
+        public int? ThursdayHours { get; set; }
 
         [Required(ErrorMessage = "Enter working hours of friday")]
-        public int FridayHours { get;set; }
+        [Range(0, 24, ErrorMessage = "Friday hours must be between 0 and 24")]
+        public int? FridayHours { get; set; }
 
         [Required(ErrorMessage = "Enter working hours of saturday")]
-        public int SaturdayHours { get;set; }
+        [Range(0, 24, ErrorMessage = "Saturday hours must be between 0 and 24")]
+        public int? SaturdayHours { get; set; }
 
         [Required(ErrorMessage = "Enter working hours of sunday")]
-        public int SundayHours { get; set; }
+        [Range(0, 24, ErrorMessage = "Sunday hours must be between 0 and 24")]
+        public int? SundayHours { get; set; }
 
         [Required(ErrorMessage = "Enter the proper Activity tag")]
         [StringLength(20,ErrorMessage = "Enter valid length of activity")]

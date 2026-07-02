@@ -16,28 +16,46 @@ namespace VivreSync.HR.Services
             _userRepository = userRepository;
         }
 
-        public List<EmployeeResponseDTO> GetAll()
+        public List<EmployeeResponseDTO> GetAll(int userId, string role)
         {
-            var employees = _repository.GetAll();
-
-            return employees
-                .Where(e => e.IsActive)
-                .Select(MapToResponse)
-                .ToList();
+            if (role == "Admin")
+            {
+                var employees = _repository.GetAll();
+                return employees.Where(e => e.IsActive).Select(MapToResponse).ToList();
+            }
+            if (role == "Manager")
+            {
+                var managerEmployee = GetEmployeeByUserId(userId);
+                var employees = _repository.GetEmployeesUnderManager(managerEmployee.Id);
+                return employees.Select(MapToResponse).ToList();
+            }
+            throw new BadRequestException("Access denied");
         }
 
-        public EmployeeResponseDTO? GetById(int id)
+        public EmployeeResponseDTO? GetById(int id, int userId, string role)
         {
             var employee = _repository.GetById(id);
-
             if (employee == null)
                 throw new NotFoundException("Employee not found");
 
             if (!employee.IsActive)
                 throw new NotFoundException("Employee not active");
 
+            if (role == "Admin")
+                return MapToResponse(employee);
+
+            if (role == "Manager")
+                ValidateManagerAccessEmployee(userId, employee);
+
+            else if (role == "Employee")
+                ValidateEmployeeAccessOwnProfile(userId, employee);
+
+            else
+                throw new BadRequestException("Access denied");
+
             return MapToResponse(employee);
         }
+
         public EmployeeResponseDTO Create(EmployeeCreateDTO dto)
         {
             var username = dto.UserName.Trim().ToLower();
@@ -63,6 +81,7 @@ namespace VivreSync.HR.Services
 
             var designation = ParseDesignation(dto.Designation);
 
+            ValidateRoleAndDesignation(parsedRole, designation);
             ValidateManager(dto.ManagerId, parsedRole);
 
             var user = new Users
@@ -111,10 +130,7 @@ namespace VivreSync.HR.Services
             if (employee == null)
                 throw new NotFoundException("Employee does not exist");
 
-            var designation = ParseDesignation(dto.Designation);
-
             employee.FullName = dto.FullName.Trim();
-            employee.Designation = designation;
 
             _repository.Update(employee);
             _repository.SaveChanges();
@@ -202,7 +218,7 @@ namespace VivreSync.HR.Services
 
         public EmployeeResponseDTO ActivateEmployee(int? id)
         {
-            if (id == null) throw new BadRequestException("Enter th required Detail");
+            if (id == null) throw new BadRequestException("Enter the required Detail");
 
             var employee = _repository.GetById(id.Value);
             if (employee == null)
@@ -239,6 +255,7 @@ namespace VivreSync.HR.Services
             {
                 if (managerId != null)
                     throw new BadRequestException("Admin should not have a manager");
+
                 return;
             }
 
@@ -246,6 +263,7 @@ namespace VivreSync.HR.Services
             {
                 if (managerId != null)
                     throw new BadRequestException("Manager should not have a manager");
+
                 return;
             }
 
@@ -262,6 +280,37 @@ namespace VivreSync.HR.Services
 
             if (manager.User.Role != UserRoles.Manager)
                 throw new BadRequestException("Selected manager must have Manager role");
+        }
+
+        private void ValidateRoleAndDesignation(UserRoles role, Designation designation)
+        {
+            if (designation == Designation.ProjectManager && role != UserRoles.Manager)
+                throw new BadRequestException("Project Manager designation must have Manager role");
+
+            if (role == UserRoles.Manager && designation != Designation.ProjectManager)
+                throw new BadRequestException("Manager role must have Project Manager designation");
+        }
+
+        private Employee GetEmployeeByUserId(int userId)
+        {
+            var employee = _repository.GetByUserId(userId);
+            if (employee == null)
+                throw new BadRequestException("Employee profile not found for current user");
+
+            return employee;
+        }
+
+        private void ValidateManagerAccessEmployee(int userId, Employee employee)
+        {
+            var managerEmployee = GetEmployeeByUserId(userId);
+            if (employee.ManagerId != managerEmployee.Id)
+                throw new BadRequestException("Cannot see details of employees not under you");
+        }
+
+        private void ValidateEmployeeAccessOwnProfile(int userId, Employee employee)
+        {
+            if (employee.UserId != userId)
+                throw new BadRequestException("Cannot see other employee details");
         }
     }
 }

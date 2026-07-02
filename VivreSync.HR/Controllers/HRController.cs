@@ -23,16 +23,10 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin,Manager")]
     public IActionResult GetAllEmployees()
     {
-        if (User.IsInRole("Manager"))
-        {
-            var currentUserId = GetCurrentUserId();
-            var managerEmployeeId = _service.GetEmployeeIdByUserId(currentUserId);
-            var managerEmployees = _service.GetEmployeesUnderManager(managerEmployeeId);
+        var userId = GetCurrentUserId();
+        var role = GetCurrentRole();
+        var employees = _service.GetAll(userId, role);
 
-            return Ok(managerEmployees);
-        }
-
-        var employees = _service.GetAll();
         return Ok(employees);
     }
 
@@ -40,24 +34,13 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin,Manager,Employee")]
     public IActionResult GetEmployeeById(int employeeId)
     {
-        if (employeeId <= 0) throw new BadRequestException("Enter valid Employee ID");
+        if (employeeId <= 0)
+            throw new BadRequestException("Enter valid Employee ID");
 
-        if (User.IsInRole("Employee"))
-        {
-            var currentUserId = GetCurrentUserId();
-            var isOwnProfile = _service.IsEmployeeLinkedToUser(employeeId, currentUserId);
-            if (!isOwnProfile)
-                throw new BadRequestException("Cannot See other employee details");
-        }
-        if (User.IsInRole("Manager"))
-        {
-            var currentUserId = GetCurrentUserId();
-            var managerEmployeeId = _service.GetEmployeeIdByUserId(currentUserId);
-            var isOwnEmployee = _service.IsEmployeeUnderManager(employeeId, managerEmployeeId);
-            if (!isOwnEmployee)
-                throw new BadRequestException("Cannot see details of employees not under you");
-        }
-        var employee = _service.GetById(employeeId);
+        var userId = GetCurrentUserId();
+        var role = GetCurrentRole();
+        var employee = _service.GetById(employeeId, userId, role);
+
         return Ok(employee);
     }
 
@@ -65,7 +48,8 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult CreateEmployee(EmployeeCreateDTO dto)
     {
-        if (dto == null) throw new BadRequestException("Enter the required details");
+        if (dto == null)
+            throw new BadRequestException("Enter the required details");
 
         var employee = _service.Create(dto);
         return Ok("Employee Created");
@@ -75,7 +59,8 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult UpdateEmployee(EmployeeUpdateDTO dto)
     {
-        if (dto == null) throw new BadRequestException("Enter the required details");
+        if (dto == null)
+            throw new BadRequestException("Enter the required details");
 
         var result = _service.Update(dto);
         return Ok("Employee Updated");
@@ -85,11 +70,12 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult DeactivateEmployee(int employeeId)
     {
-        if (employeeId <= 0) throw new BadRequestException("Enter valid Employee ID");
+        if (employeeId <= 0)
+            throw new BadRequestException("Enter valid Employee ID");
 
         var result = _service.Deactivate(employeeId);
         if (!result)
-            throw new BadRequestException("Employee Not Found");
+            throw new BadRequestException("Employee not found");
 
         return Ok("Employee deactivated");
     }
@@ -99,6 +85,7 @@ public class EmployeesController : ControllerBase
     public IActionResult GetInactiveEmployees()
     {
         var result = _service.GetInactiveEmployees();
+
         return Ok(result);
     }
 
@@ -106,7 +93,8 @@ public class EmployeesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult ActivateEmployee(int employeeId)
     {
-        if (employeeId <= 0) throw new BadRequestException("Enter valid Employee ID");
+        if (employeeId <= 0)
+            throw new BadRequestException("Enter valid Employee ID");
 
         var result = _service.ActivateEmployee(employeeId);
         return Ok(result);
@@ -119,6 +107,17 @@ public class EmployeesController : ControllerBase
             throw new UnauthorizedException("Invalid token");
 
         return currentUserId;
+    }
+
+    private string GetCurrentRole()
+    {
+        if (User.IsInRole("Admin"))
+            return "Admin";
+        if (User.IsInRole("Manager"))
+            return "Manager";
+        if (User.IsInRole("Employee"))
+            return "Employee";
+        throw new UnauthorizedException("Invalid role");
     }
 }
 
@@ -150,7 +149,7 @@ public class SkillController : ControllerBase
 
         var result = _skillService.CreateSkill(dto);
         if(result == null)
-            return BadRequest("Invalid Request");
+            throw new BadRequestException("Skill couldn't be created");
         return Ok("Skill Created");
     }
 
@@ -162,7 +161,7 @@ public class SkillController : ControllerBase
 
         var success = _skillService.AssignSkillToEmployee(dto);
         if (!success)
-            return BadRequest("Invalid Request");
+            throw new BadRequestException("Skill Couldn't be assigned");
         return Ok("Skill Assigned");
     }
 }

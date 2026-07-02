@@ -9,7 +9,7 @@ namespace VivreSync.Projects.DTOs
         public string Progress { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Enter Due Date of Milestone")]
-        public DateOnly DueDate { get; set; }
+        public DateOnly? DueDate { get; set; }
 
         [Required(ErrorMessage = "Enter Status")]
         [StringLength(100, ErrorMessage = "Enter Status of the Project under 100 characters")]

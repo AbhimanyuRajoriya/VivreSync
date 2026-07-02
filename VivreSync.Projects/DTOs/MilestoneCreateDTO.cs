@@ -9,7 +9,7 @@ namespace VivreSync.Projects.DTOs
         public string Progress { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Enter due date of milestone")]
-        public DateOnly DueDate { get; set; }
+        public DateOnly? DueDate { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "Invalid ProjectId")]
         [Required(ErrorMessage ="Enter Milestone's Project ID")]

@@ -26,43 +26,33 @@ namespace VivreSync.Projects.Controllers
         [Authorize(Roles = "Admin,Manager")]
         public IActionResult GetAllProjects()
         {
-            if (User.IsInRole("Manager"))
-            {
-                var userId = GetCurrentUserId();
-                var managerEmployeeId = _employeeService.GetEmployeeIdByUserId(userId);
-                return Ok(_projectService.GetProjectsByManager(managerEmployeeId));
-            }
+            var userId = GetCurrentUserId();
+            var role = GetCurrentRole();
+            var projects = _projectService.GetAll(userId, role);
 
-            return Ok(_projectService.GetAll());
+            return Ok(projects);
         }
 
         [HttpGet("GetProjectHealth/{projectId}")]
         [Authorize(Roles = "Manager")]
         public IActionResult GetProjectHealth(int projectId)
         {
-            if (projectId <= 0) throw new BadRequestException("Enter valid project ID");
+            if (projectId <= 0)
+                throw new BadRequestException("Enter valid project ID");
 
-            if (User.IsInRole("Manager"))
-            {
-                var userId = GetCurrentUserId();
-                var managerEmployeeId = _employeeService.GetEmployeeIdByUserId(userId);
-                var isOwnProject = _projectService.IsProjectManagedBy(projectId, managerEmployeeId);
+            var userId = GetCurrentUserId();
+            var health = _projectService.GetProjectHealth(projectId, userId);
 
-                if (!isOwnProject)
-                    throw new BadRequestException("Cannot access this project");
-            }
-            return Ok(_projectService.GetProjectHealth(projectId));
+            return Ok(health);
         }
 
         [HttpPost("CreateProject")]
         [Authorize(Roles = "Admin")]
         public IActionResult CreateProject(ProjectCreateDTO dto)
         {
-            if (dto == null) throw new BadRequestException("Enter the Required Details");
-
+            if (dto == null)
+                throw new BadRequestException("Enter the required details");
             var project = _projectService.Create(dto);
-            if (project == null)
-                throw new BadRequestException("Cannot create project with these details");
 
             return Ok(project);
         }
@@ -71,7 +61,8 @@ namespace VivreSync.Projects.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult UpdateProject(ProjectUpdateDTO dto)
         {
-            if (dto == null) throw new BadRequestException("Enter the Details");
+            if (dto == null)
+                throw new BadRequestException("Enter the details");
 
             var result = _projectService.Update(dto);
             if (!result)
@@ -87,6 +78,15 @@ namespace VivreSync.Projects.Controllers
                 throw new UnauthorizedException("Invalid token");
 
             return currentUserId;
+        }
+
+        private string GetCurrentRole()
+        {
+            if (User.IsInRole("Admin"))
+                return "Admin";
+            if (User.IsInRole("Manager"))
+                return "Manager";
+            throw new UnauthorizedException("Invalid role");
         }
     }
 }

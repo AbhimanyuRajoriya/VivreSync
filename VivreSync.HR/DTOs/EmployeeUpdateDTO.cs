@@ -11,11 +11,5 @@ namespace VivreSync.HR.DTOs
         [Required(ErrorMessage = "FullName is Required")]
         [StringLength(50, ErrorMessage = "Full name must be 50 characters or less")]
         public string FullName { get; set; } = string.Empty;
-        [Required(ErrorMessage = "Designation is required")]
-        [StringLength(50, ErrorMessage = "Designation must be 50 characters or less")]
-        public string Designation { get; set; } = string.Empty;
-
-        [Range(1, int.MaxValue, ErrorMessage = "Invalid Manager Id")]
-        public int? ManagerId { get; set; }
     }
 }

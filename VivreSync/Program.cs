@@ -119,7 +119,25 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
     {
-        var errors = context.ModelState.Where(x => x.Value != null && x.Value.Errors.Count > 0)
+        var hasInvalidJson = context.ModelState.Any(x =>
+            x.Value != null && x.Value.Errors.Any(e =>
+                e.Exception is JsonException ||
+                e.ErrorMessage.Contains("invalid start of a value", StringComparison.OrdinalIgnoreCase)));
+
+        if (hasInvalidJson)
+        {
+            return new BadRequestObjectResult(new
+            {
+                message = "Validation failed",
+                errors = new List<string>
+                {
+                    "Invalid JSON format. Please check the request body."
+                }
+            });
+        }
+
+        var errors = context.ModelState
+            .Where(x => x.Value != null && x.Value.Errors.Count > 0)
             .SelectMany(x => x.Value!.Errors.Select(error =>
             {
                 var fieldName = x.Key.Replace("$.", "").Replace("dto.", "").Replace("DTO.", "").Trim();
@@ -127,14 +145,18 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                 if (string.IsNullOrWhiteSpace(fieldName) || fieldName == "dto")
                     fieldName = "Request body";
 
-                if (error.ErrorMessage.Contains("The JSON value could not be converted"))
+                if (error.ErrorMessage.Contains("The JSON value could not be converted", StringComparison.OrdinalIgnoreCase))
                     return $"{fieldName} has invalid data type";
 
-                if (error.ErrorMessage.Contains("The dto field is required"))
-                    return "Request body is required";
+                if (error.ErrorMessage.Contains("The dto field is required", StringComparison.OrdinalIgnoreCase))
+                    return "Request body is required.";
+
+                if (error.ErrorMessage.Contains("A non-empty request body is required", StringComparison.OrdinalIgnoreCase))
+                    return "Request body is required.";
 
                 return error.ErrorMessage;
-            })).ToList();
+            }))
+            .Distinct().ToList();
 
         return new BadRequestObjectResult(new
         {

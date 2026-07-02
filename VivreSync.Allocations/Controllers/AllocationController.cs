@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VivreSync.Allocations.DTOs;
 using VivreSync.Allocations.Services;
-using VivreSync.HR.Services;
 using VivreSync.Shared.Exceptions;
 
 namespace VivreSync.Allocations.Controllers
@@ -14,7 +13,6 @@ namespace VivreSync.Allocations.Controllers
     public class AllocationsController : ControllerBase
     {
         private readonly IAllocationService _allocationService;
-
         public AllocationsController(IAllocationService allocationService)
         {
             _allocationService = allocationService;
@@ -25,18 +23,10 @@ namespace VivreSync.Allocations.Controllers
         public IActionResult GetAllAllocation()
         {
             var userId = GetCurrentUserId();
-            if (User.IsInRole("Manager"))
-            {
-                var allocations = _allocationService.GetAllocationsForManager(userId);
-                return Ok(allocations);
-            }
+            var role = GetCurrentRole();
+            var allocations = _allocationService.GetAll(userId, role);
 
-            if (User.IsInRole("Employee"))
-            {
-                var allocations = _allocationService.GetAllocationsForEmployee(userId);
-                return Ok(allocations);
-            }
-            return BadRequest("Access Denied");
+            return Ok(allocations);
         }
 
         [HttpGet("GetAllocationById/{allocationId}")]
@@ -47,23 +37,9 @@ namespace VivreSync.Allocations.Controllers
                 throw new BadRequestException("Enter valid allocation ID");
 
             var userId = GetCurrentUserId();
-            var allocation = _allocationService.GetById(allocationId);
-            if (allocation == null)
-                return NotFound("Allocation not found");
+            var role = GetCurrentRole();
+            var allocation = _allocationService.GetById(allocationId, userId, role);
 
-            if (User.IsInRole("Manager"))
-            {
-                var canAccessAllocation = _allocationService.CanManagerAccessAllocation(userId, allocationId);
-                if (!canAccessAllocation)
-                    throw new BadRequestException("Cannot Allocate the project");
-            }
-            if (User.IsInRole("Employee"))
-            {
-                var employeeAllocations = _allocationService.GetAllocationsForEmployee(userId);
-                var isOwnAllocation = employeeAllocations.Any(a => a.Id == allocationId);
-                if (!isOwnAllocation)
-                    throw new BadRequestException("Cannot check the allocation of other user");
-            }
             return Ok(allocation);
         }
 
@@ -72,12 +48,7 @@ namespace VivreSync.Allocations.Controllers
         public IActionResult CreateAllocation(AllocationCreateDTO dto)
         {
             var userId = GetCurrentUserId();
-            var canAccessEmployee = _allocationService.CanManagerAccessEmployee(userId, dto.EmployeeId);
-            var canAccessProject = _allocationService.CanManagerAccessProject(userId, dto.ProjectId);
-            if (!canAccessEmployee || !canAccessProject)
-                throw new BadRequestException("Cannot allocate the this project to this employee");
-
-            var result = _allocationService.Create(dto);
+            var result = _allocationService.Create(dto, userId);
             return Ok(result);
         }
 
@@ -89,15 +60,9 @@ namespace VivreSync.Allocations.Controllers
                 throw new BadRequestException("Enter valid allocation ID");
 
             var userId = GetCurrentUserId();
-            var canAccessExistingAllocation = _allocationService.CanManagerAccessAllocation(userId, allocationId);
-            var canAccessNewEmployee = _allocationService.CanManagerAccessEmployee(userId, dto.EmployeeId);
-            var canAccessNewProject = _allocationService.CanManagerAccessProject(userId,dto.ProjectId);
-            if (!canAccessExistingAllocation || !canAccessNewEmployee || !canAccessNewProject)
-                throw new BadRequestException("Cannot Update the Allocation");
-
-            var success = _allocationService.Update(allocationId, dto);
+            var success = _allocationService.Update(allocationId, dto, userId);
             if (!success)
-                return BadRequest("Invalid allocation");
+                throw new BadRequestException("Allocation could not be updated");
 
             return Ok("Allocation updated");
         }
@@ -129,23 +94,19 @@ namespace VivreSync.Allocations.Controllers
             return Ok(employees);
         }
 
-        [HttpDelete("DeleteAllocation/{allocationId}")]
+        [HttpPost("EndAllocation/{allocationId}")]
         [Authorize(Roles = "Manager")]
-        public IActionResult DeleteAllocation(int allocationId)
+        public IActionResult EndAllocation(int allocationId)
         {
             if (allocationId <= 0)
                 throw new BadRequestException("Enter valid allocation ID");
 
             var userId = GetCurrentUserId();
-            var canAccessAllocation = _allocationService.CanManagerAccessAllocation(userId, allocationId);
-            if (!canAccessAllocation)
-                return BadRequest("Cannot access this allocation");
+            var result = _allocationService.EndAllocation(allocationId, userId);
+            if (!result)
+                throw new BadRequestException("Allocation could not be ended");
 
-            var success = _allocationService.Delete(allocationId);
-            if (!success)
-                return NotFound("Allocation not found");
-
-            return Ok("Allocation removed");
+            return Ok("Allocation ended successfully");
         }
         private int GetCurrentUserId()
         {
@@ -154,6 +115,16 @@ namespace VivreSync.Allocations.Controllers
                 throw new UnauthorizedException("Invalid token");
 
             return currentUserId;
+        }
+
+        private string GetCurrentRole()
+        {
+            if (User.IsInRole("Manager"))
+                return "Manager";
+            if (User.IsInRole("Employee"))
+                return "Employee";
+
+            throw new UnauthorizedException("Invalid role");
         }
     }
 }

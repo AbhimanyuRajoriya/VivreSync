@@ -19,99 +19,103 @@ public class MilestoneService : IMilestoneService
         _projectRepository = projectRepository;
     }
 
-    public List<MilestoneResponseDTO> GetAll()
+    public List<MilestoneResponseDTO> GetAll(int userId)
     {
         UpdateOverdueMilestones();
-        var milestones = _milestoneRepository.GetAll();
-        return milestones.Select(m => new MilestoneResponseDTO
-        {
-            Id = m.Id,
-            Progress = m.Title,
-            DueDate = m.DueDate,
-            Status = m.Status.ToString(),
-            ProjectId = m.ProjectId,
-            ProjectName = m.Project.Name
-        }).ToList();
+        var managerEmployee = GetManagerEmployee(userId);
+        var milestones = _milestoneRepository.GetMilestonesByManager(managerEmployee.Id);
+
+        return milestones.Select(MapToResponse).ToList();
     }
 
-    public MilestoneResponseDTO? GetById(int id)
+    public MilestoneResponseDTO? GetById(int id, int userId)
     {
         UpdateOverdueMilestones();
         var milestone = _milestoneRepository.GetById(id);
         if (milestone == null)
-            throw new NotFoundException("Milestone does not exists");
+            throw new NotFoundException("Milestone does not exist");
 
-        return new MilestoneResponseDTO
-        {
-            Id = milestone.Id,
-            Progress = milestone.Title,
-            DueDate = milestone.DueDate,
-            Status = milestone.Status.ToString(),
-            ProjectId = milestone.ProjectId,
-            ProjectName = milestone.Project.Name
-        };
+        ValidateManagerAccessMilestone(userId, milestone);
+
+        return MapToResponse(milestone);
     }
 
-    public List<MilestoneResponseDTO> GetByProjectId(int projectId)
+    public List<MilestoneResponseDTO> GetByProjectId(int projectId, int userId)
     {
+        ValidateManagerAccessProject(userId, projectId);
         var milestones = _milestoneRepository.GetByProjectId(projectId);
-        if (milestones == null)
-            throw new BadRequestException("Invalid project ID");
 
-        return milestones.Select(m => new MilestoneResponseDTO
-        {
-            Id = m.Id,
-            Progress = m.Title,
-            DueDate = m.DueDate,
-            Status = m.Status.ToString(),
-            ProjectId = m.ProjectId,
-            ProjectName = m.Project.Name
-        }).ToList();
+        return milestones.Select(MapToResponse).ToList();
     }
 
-    public MilestoneResponseDTO? Create(MilestoneCreateDTO dto)
+    public MilestoneResponseDTO? Create(MilestoneCreateDTO dto, int userId)
     {
+        ValidateManagerAccessProject(userId, dto.ProjectId);
+
         var project = _projectRepository.GetById(dto.ProjectId);
         if (project == null)
             throw new NotFoundException("Project does not exist");
 
+        if (string.IsNullOrWhiteSpace(dto.Progress))
+            throw new BadRequestException("Progress is required");
+
+        if (dto.DueDate == null)
+            throw new BadRequestException("Due date is required");
+
+        if (dto.DueDate.Value < DateOnly.FromDateTime(DateTime.Today))
+            throw new BadRequestException("Due date cannot be older than today");
+
         var milestone = new Milestone
         {
-            Title = dto.Progress,
-            DueDate = dto.DueDate,
+            Title = dto.Progress.Trim(),
+            DueDate = dto.DueDate.Value,
             ProjectId = dto.ProjectId
         };
+
         _milestoneRepository.Add(milestone);
         _milestoneRepository.SaveChanges();
 
-        return new MilestoneResponseDTO
-        {
-            Id = milestone.Id,
-            Progress = milestone.Title,
-            DueDate = milestone.DueDate,
-            Status = milestone.Status.ToString(),
-            ProjectId = milestone.ProjectId,
-            ProjectName = project.Name
-        };
+        var savedMilestone = _milestoneRepository.GetById(milestone.Id);
+        if (savedMilestone == null)
+            throw new NotFoundException("Milestone could not be loaded after save");
+
+        return MapToResponse(savedMilestone);
     }
 
-    public bool Update(int id, MilestoneUpdateDTO dto)
+    public bool Update(int id, MilestoneUpdateDTO dto, int userId)
     {
         var milestone = _milestoneRepository.GetById(id);
         if (milestone == null)
             throw new NotFoundException("Milestone does not exist");
 
-        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, ignoreCase: true, out var parsedStatus)
-                         && Enum.IsDefined(typeof(MilestoneStatus), parsedStatus);
+        ValidateManagerAccessMilestone(userId, milestone);
+
+        if (string.IsNullOrWhiteSpace(dto.Progress))
+            throw new BadRequestException("Progress is required");
+
+        if (dto.DueDate == null)
+            throw new BadRequestException("Due date is required");
+
+        if (dto.DueDate.Value < DateOnly.FromDateTime(DateTime.Today))
+            throw new BadRequestException("Due date cannot be older than today");
+
+        if (dto.DueDate.Value < milestone.DueDate)
+            throw new BadRequestException("Milestone due date can only be postponed, not shortened");
+
+        if (string.IsNullOrWhiteSpace(dto.Status))
+            throw new BadRequestException("Status is required");
+
+        var isValidStatus = Enum.TryParse<MilestoneStatus>(dto.Status, true, out var parsedStatus) && Enum.IsDefined(typeof(MilestoneStatus), parsedStatus);
         if (!isValidStatus)
             throw new BadRequestException("Invalid status");
 
-        milestone.Title = dto.Progress;
-        milestone.DueDate = dto.DueDate;
+        milestone.Title = dto.Progress.Trim();
+        milestone.DueDate = dto.DueDate.Value;
         milestone.Status = parsedStatus;
 
         _milestoneRepository.Update(milestone);
         _milestoneRepository.SaveChanges();
+
         return true;
     }
 
@@ -131,32 +135,29 @@ public class MilestoneService : IMilestoneService
         _milestoneRepository.SaveChanges();
     }
 
-    public List<MilestoneResponseDTO> GetMilestonesForManager(int userId)
+    private Employee GetManagerEmployee(int userId)
     {
         var managerEmployee = _employeeRepository.GetByUserId(userId);
         if (managerEmployee == null)
             throw new BadRequestException("Manager employee profile not found");
-
-        var milestones = _milestoneRepository.GetMilestonesByManager(managerEmployee.Id);
-        return milestones.Select(MapToResponse).ToList();
+        return managerEmployee;
     }
 
-    public bool CanManagerAccessMilestone(int userId, int milestoneId)
+    private void ValidateManagerAccessProject(int userId, int projectId)
     {
-        var managerEmployee = _employeeRepository.GetByUserId(userId);
-        if (managerEmployee == null)
-            return false;
-
-        return _milestoneRepository.IsMilestoneManagedBy(milestoneId, managerEmployee.Id);
+        var managerEmployee = GetManagerEmployee(userId);
+        var project = _projectRepository.GetById(projectId);
+        if (project == null)
+            throw new NotFoundException("Project does not exist");
+        if (project.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this project");
     }
 
-    public bool CanManagerAccessProject(int userId, int projectId)
+    private void ValidateManagerAccessMilestone(int userId, Milestone milestone)
     {
-        var managerEmployee = _employeeRepository.GetByUserId(userId);
-        if (managerEmployee == null)
-            return false;
-
-        return _projectRepository.IsProjectManagedBy(projectId, managerEmployee.Id);
+        var managerEmployee = GetManagerEmployee(userId);
+        if (milestone.Project.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this milestone");
     }
 
     private MilestoneResponseDTO MapToResponse(Milestone milestone)

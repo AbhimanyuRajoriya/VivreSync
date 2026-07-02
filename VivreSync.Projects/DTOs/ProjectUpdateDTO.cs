@@ -19,9 +19,5 @@ namespace VivreSync.Projects.DTOs
         [Required(ErrorMessage = "Enter Status")]
         [StringLength(100, ErrorMessage = "Status must be 100 characters or less")]
         public string Status { get; set; } = string.Empty;
-
-        [Range(1, int.MaxValue, ErrorMessage = "Invalid Manager Id")]
-        [Required(ErrorMessage = "Enter Manager ID")]
-        public int ManagerId { get; set; }
     }
 }

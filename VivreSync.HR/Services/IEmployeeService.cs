@@ -4,8 +4,8 @@ namespace VivreSync.HR.Services
 {
     public interface IEmployeeService
     {
-        List<EmployeeResponseDTO> GetAll();
-        EmployeeResponseDTO? GetById(int id);
+        List<EmployeeResponseDTO> GetAll(int userId, string role);
+        EmployeeResponseDTO? GetById(int employeeId, int userId, string role);
         EmployeeResponseDTO? Create(EmployeeCreateDTO dto);
         EmployeeResponseDTO? Update(EmployeeUpdateDTO dto);
         bool Deactivate(int? id);

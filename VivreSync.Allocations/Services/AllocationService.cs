@@ -19,57 +19,71 @@ public class AllocationService : IAllocationService
         _projectRepository = projectRepository;
     }
 
-    public List<AllocationResponseDTO> GetAll()
+    public List<AllocationResponseDTO> GetAll(int userId, string role)
     {
-        var allocations = _allocationRepository.GetAll();
-
-        return allocations.Select(a => new AllocationResponseDTO
+        if (role == "Manager")
         {
-            Id = a.Id,
-            EmployeeId = a.EmployeeId,
-            EmployeeName = a.Employee.FullName,
-            ProjectId = a.ProjectId,
-            ProjectName = a.Project.Name,
-            UtilizationPercentage = a.UtilizationPercentage,
-            StartDate = a.StartDate,
-            EndDate = a.EndDate
-        }).ToList();
+            var managerEmployee = GetManagerEmployee(userId);
+            var allocations = _allocationRepository.GetAll()
+                .Where(a => a.Employee.ManagerId == managerEmployee.Id && a.Project.ManagerId == managerEmployee.Id && a.Employee.IsActive).ToList();
+
+            return allocations.Select(MapToResponse).ToList();
+        }
+
+        if (role == "Employee")
+        {
+            var employee = GetEmployeeByUserId(userId);
+            var allocations = _allocationRepository.GetAll()
+                .Where(a => a.EmployeeId == employee.Id)
+                .ToList();
+
+            return allocations.Select(MapToResponse).ToList();
+        }
+
+        throw new BadRequestException("Access denied");
     }
 
-    public AllocationResponseDTO? GetById(int id)
+    public AllocationResponseDTO GetById(int id, int userId, string role)
     {
         var allocation = _allocationRepository.GetById(id);
-
         if (allocation == null)
-            throw new NotFoundException("Allocation Not Found");
+            throw new NotFoundException("Allocation not found");
 
-        return new AllocationResponseDTO
-        {
-            Id = allocation.Id,
-            EmployeeId = allocation.EmployeeId,
-            EmployeeName = allocation.Employee.FullName,
-            ProjectId = allocation.ProjectId,
-            ProjectName = allocation.Project.Name,
-            UtilizationPercentage = allocation.UtilizationPercentage,
-            StartDate = allocation.StartDate,
-            EndDate = allocation.EndDate
-        };
+        if (role == "Manager")
+            ValidateManagerAccessAllocation(userId, allocation);
+        else if (role == "Employee")
+            ValidateEmployeeAccessAllocation(userId, allocation);
+        else
+            throw new BadRequestException("Access denied");
+
+        return MapToResponse(allocation);
     }
 
-    public AllocationResponseDTO Create(AllocationCreateDTO dto)
+    public AllocationResponseDTO Create(AllocationCreateDTO dto, int userId)
     {
+        ValidateManagerAccessEmployee(userId, dto.EmployeeId);
+        ValidateManagerAccessProject(userId, dto.ProjectId);
+
+        if (dto.StartDate == null)
+            throw new BadRequestException("Start date is required");
+
+        if (dto.EndDate == null)
+            throw new BadRequestException("End date is required");
+
         var today = DateOnly.FromDateTime(DateTime.Today);
-        if (dto.StartDate < today)
+
+        if (dto.StartDate.Value < today)
             throw new BadRequestException("Allocation start date cannot be before today");
 
-        if (dto.StartDate > dto.EndDate)
-            throw new BadRequestException("Enter valid date range");
+        if (dto.StartDate.Value > dto.EndDate.Value)
+            throw new BadRequestException("End date should be after the start date");
 
         if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
             throw new BadRequestException("Enter valid utilization percentage");
 
         var employee = _employeeRepository.GetById(dto.EmployeeId);
         var project = _projectRepository.GetById(dto.ProjectId);
+
         if (employee == null || project == null)
             throw new BadRequestException("Enter valid employee and project ID");
 
@@ -82,8 +96,9 @@ public class AllocationService : IAllocationService
         if (project.Status == ProjectStatus.OnHold)
             throw new BadRequestException("Project is currently on hold");
 
-        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(dto.EmployeeId, dto.StartDate,dto.EndDate);
-        var canAllocate = CanAllocate(overlappingAllocations, dto.StartDate, dto.EndDate, dto.UtilizationPercentage);
+        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(dto.EmployeeId, dto.StartDate.Value, dto.EndDate.Value);
+        var canAllocate = CanAllocate(overlappingAllocations, dto.StartDate.Value, dto.EndDate.Value, dto.UtilizationPercentage);
+
         if (!canAllocate)
             throw new BadRequestException("Employee cannot be allocated more than 100% on overlapping dates");
 
@@ -92,8 +107,8 @@ public class AllocationService : IAllocationService
             EmployeeId = dto.EmployeeId,
             ProjectId = dto.ProjectId,
             UtilizationPercentage = dto.UtilizationPercentage,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate
+            StartDate = dto.StartDate.Value,
+            EndDate = dto.EndDate.Value
         };
 
         _allocationRepository.Add(allocation);
@@ -111,72 +126,97 @@ public class AllocationService : IAllocationService
         };
     }
 
-    public bool Delete(int id)
+    public bool EndAllocation(int id, int userId)
     {
         var allocation = _allocationRepository.GetById(id);
-
-        if (allocation == null)
-            throw new NotFoundException("Allcation Not Found");
-
-        _allocationRepository.Delete(allocation);
-
-        return true;
-    }
-
-    public bool Update(int id, AllocationUpdateDTO dto)
-    {
-        var allocation = _allocationRepository.GetById(id);
-
         if (allocation == null)
             throw new NotFoundException("Allocation not found");
 
+        ValidateManagerAccessAllocation(userId, allocation);
+
         var today = DateOnly.FromDateTime(DateTime.Today);
+        if (allocation.EndDate < today)
+            throw new BadRequestException("Allocation already ended");
 
-        if (allocation.StartDate < today)
-            throw new BadRequestException("Past allocation cannot be updated");
-
-        if (dto.StartDate < today)
-            throw new BadRequestException("Allocation start date cannot be before today");
-
-        if (dto.StartDate > dto.EndDate)
-            throw new BadRequestException("Invalid date range");
-
-        if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
-            throw new BadRequestException("Invalid utilization percentage");
-
-        var employee = _employeeRepository.GetById(dto.EmployeeId);
-        var project = _projectRepository.GetById(dto.ProjectId);
-
-        if (employee == null || project == null)
-            throw new BadRequestException("Enter valid employee and project ID");
-
-        if (!employee.IsActive || employee.User == null || !employee.User.IsActive)
-            throw new BadRequestException("Employee is not active");
-
-        if (project.Status == ProjectStatus.Completed)
-            throw new BadRequestException("Project is completed");
-
-        if (project.Status == ProjectStatus.OnHold)
-            throw new BadRequestException("Project is currently on hold");
-
-        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(dto.EmployeeId, dto.StartDate, dto.EndDate);
-
-        var existingAllocations = overlappingAllocations.Where(a => a.Id != id).ToList();
-
-        var canAllocate = CanAllocate(existingAllocations, dto.StartDate, dto.EndDate, dto.UtilizationPercentage);
-        if (!canAllocate)
-            throw new BadRequestException("Employee cannot be allocated more than 100% on overlapping dates");
-
-        allocation.EmployeeId = dto.EmployeeId;
-        allocation.ProjectId = dto.ProjectId;
-        allocation.UtilizationPercentage = dto.UtilizationPercentage;
-        allocation.StartDate = dto.StartDate;
-        allocation.EndDate = dto.EndDate;
+        if (allocation.StartDate > today)
+        {
+            _allocationRepository.Delete(allocation);
+            return true;
+        }
+        allocation.EndDate = today;
 
         _allocationRepository.Update(allocation);
 
         return true;
     }
+
+    public bool Update(int id, AllocationUpdateDTO dto, int userId)
+    {
+        var allocation = _allocationRepository.GetById(id);
+        if (allocation == null)
+            throw new NotFoundException("Allocation not found");
+
+        ValidateManagerAccessAllocation(userId, allocation);
+
+        if (dto.StartDate == null)
+            throw new BadRequestException("Start date is required");
+        if (dto.EndDate == null)
+            throw new BadRequestException("End date is required");
+
+        if (dto.UtilizationPercentage == null)
+            throw new BadRequestException("Utilization percentage is required");
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (allocation.EndDate < today)
+            throw new BadRequestException("Past allocation cannot be updated");
+        if (dto.StartDate.Value > dto.EndDate.Value)
+            throw new BadRequestException("Invalid date range");
+
+        if (dto.UtilizationPercentage <= 0 || dto.UtilizationPercentage > 100)
+            throw new BadRequestException("Invalid utilization percentage");
+
+        if (!allocation.Employee.IsActive || allocation.Employee.User == null || !allocation.Employee.User.IsActive)
+            throw new BadRequestException("Employee is not active");
+
+        if (allocation.Project.Status == ProjectStatus.Completed)
+            throw new BadRequestException("Project is completed");
+        if (allocation.Project.Status == ProjectStatus.OnHold)
+            throw new BadRequestException("Project is currently on hold");
+
+        if (allocation.StartDate <= today)
+        {
+            if (dto.StartDate.Value != allocation.StartDate)
+                throw new BadRequestException("Start date of an ongoing allocation cannot be changed");
+
+            if (dto.EndDate.Value < today)
+                throw new BadRequestException("End date cannot be before today");
+        }
+        else
+        {
+            if (dto.StartDate.Value < today)
+                throw new BadRequestException("Allocation start date cannot be before today");
+        }
+
+        var overlappingAllocations = _allocationRepository.GetOverlappingAllocations(
+            allocation.EmployeeId,
+            dto.StartDate.Value,
+            dto.EndDate.Value);
+
+        var existingAllocations = overlappingAllocations.Where(a => a.Id != id).ToList();
+
+        var canAllocate = CanAllocate(existingAllocations,dto.StartDate.Value, dto.EndDate.Value, dto.UtilizationPercentage);
+        if (!canAllocate)
+            throw new BadRequestException("Employee cannot be allocated more than 100% on overlapping dates");
+
+        allocation.StartDate = dto.StartDate.Value;
+        allocation.EndDate = dto.EndDate.Value;
+        allocation.UtilizationPercentage = dto.UtilizationPercentage;
+
+        _allocationRepository.Update(allocation);
+
+        return true;
+    }
+
     public List<EmployeeAllocationDTO>? GetFreeEmployee(int userId)
     {
         var employees = GetEmployeeTable(userId);
@@ -195,8 +235,7 @@ public class AllocationService : IAllocationService
 
         var employees = _employeeRepository.GetAll()
             .Where(e =>
-                e.IsActive &&
-                e.ManagerId == managerEmployee.Id).ToList();
+                e.IsActive && e.ManagerId == managerEmployee.Id).ToList();
 
         var allocations = _allocationRepository.GetAll();
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -220,75 +259,65 @@ public class AllocationService : IAllocationService
         }).ToList();
         return result;
     }
-    public bool CanManagerAccessProject(int userId, int projectId)
-    {
-        var managerEmployee = _employeeRepository.GetByUserId(userId);
-        if (managerEmployee == null)
-            return false;
 
-        return _projectRepository.IsProjectManagedBy(projectId, managerEmployee.Id);
-    }
-    public bool CanManagerAccessAllocation(int userId, int allocationId)
-    {
-        var managerEmployee = _employeeRepository.GetByUserId(userId);
-        if (managerEmployee == null)
-            return false;
-
-        var allocation = _allocationRepository.GetById(allocationId);
-        if (allocation == null)
-            return false;
-
-        var ownsEmployee = _employeeRepository.IsEmployeeUnderManager(allocation.EmployeeId, managerEmployee.Id);
-        var ownsProject = _projectRepository.IsProjectManagedBy(allocation.ProjectId, managerEmployee.Id);
-        return ownsEmployee && ownsProject;
-    }
-
-    public bool CanManagerAccessEmployee(int userId, int employeeId)
-    {
-        var managerEmployee = _employeeRepository.GetByUserId(userId);
-        if (managerEmployee == null)
-            return false;
-
-        return _employeeRepository.IsEmployeeUnderManager(employeeId, managerEmployee.Id);
-    }
-
-    public List<AllocationResponseDTO> GetAllocationsForManager(int userId)
+    private Employee GetManagerEmployee(int userId)
     {
         var managerEmployee = _employeeRepository.GetByUserId(userId);
         if (managerEmployee == null)
             throw new BadRequestException("Manager employee profile not found");
 
-        var allocations = _allocationRepository.GetAll()
-            .Where(a =>
-                a.Employee.ManagerId == managerEmployee.Id &&
-                a.Project.ManagerId == managerEmployee.Id &&
-                a.Employee.IsActive).ToList();
-
-        return allocations.Select(MapToResponse).ToList();
+        return managerEmployee;
     }
 
-    public List<AllocationResponseDTO> GetAllocationsForEmployee(int userId)
+    private Employee GetEmployeeByUserId(int userId)
     {
         var employee = _employeeRepository.GetByUserId(userId);
         if (employee == null)
             throw new BadRequestException("Employee profile not found");
 
-        var allocations = _allocationRepository.GetAll()
-            .Where(a => a.EmployeeId == employee.Id).ToList();
-
-        return allocations.Select(MapToResponse).ToList();
+        return employee;
     }
 
-    private bool CanAllocate(
-    List<Allocation> existingAllocations, DateOnly newStartDate, DateOnly newEndDate, int newUtilization)
+    private void ValidateManagerAccessEmployee(int userId, int employeeId)
     {
-        for (var date = newStartDate; date <= newEndDate; date = date.AddDays(1))
-        {
-            var allocationOnThisDay = existingAllocations.Where(a => a.StartDate <= date && a.EndDate >= date).Sum(a => a.UtilizationPercentage);
-            if (allocationOnThisDay + newUtilization > 100)
-                return false;
-        }
-        return true;
+        var managerEmployee = GetManagerEmployee(userId);
+        var employee = _employeeRepository.GetById(employeeId);
+        if (employee == null)
+            throw new NotFoundException("Employee does not exist");
+
+        if (!employee.IsActive || employee.User == null || !employee.User.IsActive)
+            throw new BadRequestException("Employee is not active");
+
+        if (employee.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this employee");
+    }
+
+    private void ValidateManagerAccessProject(int userId, int projectId)
+    {
+        var managerEmployee = GetManagerEmployee(userId);
+        var project = _projectRepository.GetById(projectId);
+        if (project == null)
+            throw new NotFoundException("Project does not exist");
+
+        if (project.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this project");
+    }
+
+    private void ValidateManagerAccessAllocation(int userId, Allocation allocation)
+    {
+        var managerEmployee = GetManagerEmployee(userId);
+        if (allocation.Employee.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this allocation employee");
+
+        if (allocation.Project.ManagerId != managerEmployee.Id)
+            throw new BadRequestException("Cannot access this allocation project");
+    }
+
+    private void ValidateEmployeeAccessAllocation(int userId, Allocation allocation)
+    {
+        var employee = GetEmployeeByUserId(userId);
+        if (allocation.EmployeeId != employee.Id)
+            throw new BadRequestException("Cannot check the allocation of other user");
     }
 
     private AllocationResponseDTO MapToResponse(Allocation allocation)
@@ -304,5 +333,17 @@ public class AllocationService : IAllocationService
             StartDate = allocation.StartDate,
             EndDate = allocation.EndDate
         };
+    }
+
+    private bool CanAllocate(
+    List<Allocation> existingAllocations, DateOnly newStartDate, DateOnly newEndDate, int newUtilization)
+    {
+        for (var date = newStartDate; date <= newEndDate; date = date.AddDays(1))
+        {
+            var allocationOnThisDay = existingAllocations.Where(a => a.StartDate <= date && a.EndDate >= date).Sum(a => a.UtilizationPercentage);
+            if (allocationOnThisDay + newUtilization > 100)
+                return false;
+        }
+        return true;
     }
 }

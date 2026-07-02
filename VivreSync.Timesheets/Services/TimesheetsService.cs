@@ -77,6 +77,9 @@ namespace VivreSync.Timesheets.Services
             if (dto == null)
                 throw new BadRequestException("Enter the required data");
 
+            if (dto.WeekStartDate == null)
+                throw new BadRequestException("Week Start Date is required");
+
             var loggedInEmployee = _employeeRepository.GetByUserId(userId);
             if (loggedInEmployee == null)
                 throw new BadRequestException("Employee profile not found");
@@ -84,30 +87,33 @@ namespace VivreSync.Timesheets.Services
             if (dto.EmployeeId != loggedInEmployee.Id)
                 throw new UnauthorizedException("Cannot create timesheet for other employee");
 
-            if (!IsValidDate(dto.WeekStartDate))
+            if (!IsValidDate(dto.WeekStartDate.Value))
                 throw new BadRequestException("Enter valid date");
 
-            if (!IsMonday(dto.WeekStartDate))
+            if (!IsMonday(dto.WeekStartDate.Value))
                 throw new BadRequestException("Invalid week start date");
+
+            if (dto.WeekStartDate > GetCurrentWeekStartDate())
+                throw new BadRequestException("Future timesheets cannot be submitted");
 
             var employee = _employeeRepository.GetById(dto.EmployeeId);
             if (employee == null || !employee.IsActive)
-                throw new NotFoundException("Employee does not exist or inactive");
+                throw new NotFoundException("Employee does not exist");
 
             var project = _projectRepository.GetById(dto.ProjectId);
             if (project == null)
                 throw new NotFoundException("Project does not exist");
 
-            var weekEndDate = dto.WeekStartDate.AddDays(6);
-            var isAllocated = _repository.IsEmployeeAllocatedToProject(dto.EmployeeId, dto.ProjectId, dto.WeekStartDate, weekEndDate);
+            var weekEndDate = dto.WeekStartDate.Value.AddDays(6);
+            var isAllocated = _repository.IsEmployeeAllocatedToProject(dto.EmployeeId, dto.ProjectId, dto.WeekStartDate.Value, weekEndDate);
             if (!isAllocated)
                 throw new BadRequestException("Employee is not allocated to project");
 
-            var alreadySubmitted = _repository.ExistsForWeek(dto.EmployeeId, dto.ProjectId, dto.WeekStartDate);
+            var alreadySubmitted = _repository.ExistsForWeek(dto.EmployeeId, dto.ProjectId, dto.WeekStartDate.Value);
             if (alreadySubmitted)
                 throw new BadRequestException("Timesheet already submitted");
 
-            if (!AreHoursValid(dto.MondayHours, dto.TuesdayHours, dto.WednesdayHours, dto.ThursdayHours, dto.FridayHours, dto.SaturdayHours, dto.SundayHours))
+            if (!AreHoursValid(dto.MondayHours.Value, dto.TuesdayHours.Value, dto.WednesdayHours.Value, dto.ThursdayHours.Value, dto.FridayHours.Value, dto.SaturdayHours.Value, dto.SundayHours.Value))
             {
                 throw new BadRequestException("Invalid weekly hours");
             }
@@ -123,14 +129,14 @@ namespace VivreSync.Timesheets.Services
             {
                 EmployeeId = dto.EmployeeId,
                 ProjectId = dto.ProjectId,
-                WeekStartDate = dto.WeekStartDate,
-                MondayHours = dto.MondayHours,
-                TuesdayHours = dto.TuesdayHours,
-                WednesdayHours = dto.WednesdayHours,
-                ThursdayHours = dto.ThursdayHours,
-                FridayHours = dto.FridayHours,
-                SaturdayHours = dto.SaturdayHours,
-                SundayHours = dto.SundayHours,
+                WeekStartDate = dto.WeekStartDate.Value,
+                MondayHours = dto.MondayHours.Value,
+                TuesdayHours = dto.TuesdayHours.Value,
+                WednesdayHours = dto.WednesdayHours.Value,
+                ThursdayHours = dto.ThursdayHours.Value,
+                FridayHours = dto.FridayHours.Value,
+                SaturdayHours = dto.SaturdayHours.Value,
+                SundayHours = dto.SundayHours.Value,
                 ActivityTag = activityTags,
                 SubmittedAt = DateTime.UtcNow
             };
@@ -148,70 +154,60 @@ namespace VivreSync.Timesheets.Services
         {
             if (id <= 0)
                 throw new BadRequestException("Enter valid Timesheet Id");
+
             if (dto == null)
                 throw new BadRequestException("Enter the required data");
 
             var loggedInEmployee = _employeeRepository.GetByUserId(userId);
+
             if (loggedInEmployee == null)
                 throw new BadRequestException("Employee profile not found");
 
             var timesheet = _repository.GetById(id);
+
             if (timesheet == null)
                 throw new NotFoundException("Timesheet does not exist");
 
             if (timesheet.EmployeeId != loggedInEmployee.Id)
                 throw new UnauthorizedException("Cannot update timesheet of other employee");
 
-            if (!IsValidDate(dto.WeekStartDate))
-                throw new BadRequestException("Invalid date");
-
-            if (!IsMonday(dto.WeekStartDate))
-                throw new BadRequestException("Week start date must be Monday");
-
             var currentWeekStartDate = GetCurrentWeekStartDate();
+
             if (timesheet.WeekStartDate < currentWeekStartDate)
                 throw new BadRequestException("Previous week's submitted timesheet cannot be updated");
 
-            if (!AreHoursValid(dto.MondayHours,dto.TuesdayHours,dto.WednesdayHours,dto.ThursdayHours,dto.FridayHours,dto.SaturdayHours,dto.SundayHours))
-            {
+            if (timesheet.WeekStartDate > currentWeekStartDate)
+                throw new BadRequestException("Future timesheets cannot be updated");
+
+            if (!AreHoursValid(dto.MondayHours.Value, dto.TuesdayHours.Value, dto.WednesdayHours.Value, dto.ThursdayHours.Value, dto.FridayHours.Value, dto.SaturdayHours.Value, dto.SundayHours.Value))
                 throw new BadRequestException("Invalid weekly hours");
-            }
 
             if (string.IsNullOrWhiteSpace(dto.ActivityTag))
                 throw new BadRequestException("Activity tag is required");
 
             var isValidActivity = Enum.TryParse<ActivityTags>(dto.ActivityTag, true, out var activityTags) && Enum.IsDefined(typeof(ActivityTags), activityTags);
+
             if (!isValidActivity)
                 throw new BadRequestException("Enter valid activity tag");
 
-            var weekEndDate = dto.WeekStartDate.AddDays(6);
+            var weekEndDate = timesheet.WeekStartDate.AddDays(6);
 
             var isAllocated = _repository.IsEmployeeAllocatedToProject(
                 timesheet.EmployeeId,
                 timesheet.ProjectId,
-                dto.WeekStartDate,
+                timesheet.WeekStartDate,
                 weekEndDate);
 
             if (!isAllocated)
                 throw new BadRequestException("Employee is not allocated to this project for this week");
 
-            var alreadySubmitted = _repository.ExistsForWeekExceptCurrent(
-                id,
-                timesheet.EmployeeId,
-                timesheet.ProjectId,
-                dto.WeekStartDate);
-
-            if (alreadySubmitted)
-                throw new BadRequestException("Timesheet already submitted for this employee, project, and week");
-
-            timesheet.WeekStartDate = dto.WeekStartDate;
-            timesheet.MondayHours = dto.MondayHours;
-            timesheet.TuesdayHours = dto.TuesdayHours;
-            timesheet.WednesdayHours = dto.WednesdayHours;
-            timesheet.ThursdayHours = dto.ThursdayHours;
-            timesheet.FridayHours = dto.FridayHours;
-            timesheet.SaturdayHours = dto.SaturdayHours;
-            timesheet.SundayHours = dto.SundayHours;
+            timesheet.MondayHours = dto.MondayHours.Value;
+            timesheet.TuesdayHours = dto.TuesdayHours.Value;
+            timesheet.WednesdayHours = dto.WednesdayHours.Value;
+            timesheet.ThursdayHours = dto.ThursdayHours.Value;
+            timesheet.FridayHours = dto.FridayHours.Value;
+            timesheet.SaturdayHours = dto.SaturdayHours.Value;
+            timesheet.SundayHours = dto.SundayHours.Value;
             timesheet.ActivityTag = activityTags;
 
             _repository.Update(timesheet);
@@ -252,10 +248,10 @@ namespace VivreSync.Timesheets.Services
                 throw new BadRequestException("Manager employee profile not found");
 
             if (!IsMonday(weekStartDate))
-                return new List<TimesheetMissedDTO>();
+                throw new BadRequestException("Week start date must be Monday");
 
             if (!IsValidDate(weekStartDate))
-                return new List<TimesheetMissedDTO>();
+                throw new BadRequestException("Enter valid date");
 
             var weekEndDate = weekStartDate.AddDays(6);
             var allocations = _repository.GetAllocationsForWeek(weekStartDate, weekEndDate)
@@ -284,16 +280,6 @@ namespace VivreSync.Timesheets.Services
             }
 
             return missedTimesheets;
-        }
-
-        public bool IsTimesheetLinkedToUser(int timesheetId, int userId)
-        {
-            var timesheet = _repository.GetById(timesheetId);
-
-            if (timesheet == null)
-                throw new NotFoundException("Timesheet does not exist");
-
-            return timesheet.Employee.UserId == userId && timesheet.Employee.IsActive;
         }
 
         private TimesheetResponseDTO TimesheetMap(Timesheet timesheet)
